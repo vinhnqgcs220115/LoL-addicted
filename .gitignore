@@ -37,7 +37,7 @@ models/*.ubj
 # VSCode
 .vscode/
 *.code-workspace
-.claude
+# .claude
 
 # Windows
 Thumbs.db

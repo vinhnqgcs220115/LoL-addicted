@@ -27,3 +27,4 @@ ipykernel==6.29.4
 
 # Dev Tools
 ruff==0.4.7
+pytest==8.3.5
