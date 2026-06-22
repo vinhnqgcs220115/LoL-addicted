@@ -15,13 +15,14 @@ DOTENV_PATH = BASE_DIR / ".env"
 RAW_DATA_DIR = BASE_DIR / "data" / "raw"
 
 ACCOUNT_BASE_URL = "https://asia.api.riotgames.com"
+# Reserved for Summoner-v4 / League-v4 (rank, LP) — Stretch Goal: pro comparison
 SUMMONER_BASE_URL = "https://vn1.api.riotgames.com"
 MATCH_BASE_URL = "https://sea.api.riotgames.com"
 
 QUEUE_RANKED_SOLO = 420
 REQUEST_DELAY_SECONDS = 1.3
 REQUEST_TIMEOUT_SECONDS = 30
-DEFAULT_MATCH_COUNT = 100
+DEFAULT_MATCH_COUNT = 500
 
 JsonPayload = dict[str, Any] | list[Any]
 
@@ -50,9 +51,19 @@ def _get_retry_after_seconds(header_value: str | None) -> float:
 
 
 def _save_raw(path: Path, payload: JsonPayload) -> None:
+    """Write payload atomically via a .tmp file. Raises FileExistsError
+    if path already exists — raw files are write-once and immutable after saving."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("x", encoding="utf-8") as handle:
-        json.dump(payload, handle, ensure_ascii=False, indent=2)
+    if path.exists():
+        raise FileExistsError(f"{path.name} already exists; raw files are write-once.")
+    tmp = path.with_suffix(".tmp")
+    try:
+        with tmp.open("w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+        tmp.rename(path)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def _resolve_account_identity() -> tuple[str, str]:
@@ -91,7 +102,13 @@ def riot_get_safe(url: str, max_retries: int = 3) -> JsonPayload:
 
     for attempt in range(1, max_retries + 1):
         time.sleep(REQUEST_DELAY_SECONDS)
-        response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+        try:
+            response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS)
+        except requests.RequestException:
+            if attempt == max_retries:
+                raise
+            time.sleep(REQUEST_DELAY_SECONDS)
+            continue
 
         if response.status_code == 429:
             if attempt == max_retries:
@@ -138,19 +155,43 @@ def get_puuid(game_name: str, tag: str) -> str:
     return puuid
 
 
-def get_match_ids(puuid: str, count: int = DEFAULT_MATCH_COUNT) -> list[str]:
-    """Fetch recent ranked Solo/Duo match IDs for a player."""
+def get_match_ids(
+    puuid: str,
+    count: int = DEFAULT_MATCH_COUNT,
+    start_time: int | None = None,
+    end_time: int | None = None,
+) -> list[str]:
+    """Fetch recent ranked Solo/Duo match IDs for a player, paginating as needed."""
 
-    url = (
-        f"{MATCH_BASE_URL}/lol/match/v5/matches/by-puuid/{quote(puuid, safe='')}/ids"
-        f"?start=0&count={count}&queue={QUEUE_RANKED_SOLO}&type=ranked"
-    )
-    payload = riot_get_safe(url)
+    all_ids: list[str] = []
+    start = 0
 
-    if not isinstance(payload, list):
-        raise TypeError("Expected a list of match IDs from the Riot API.")
+    while len(all_ids) < count:
+        batch_size = min(100, count - len(all_ids))
+        url = (
+            f"{MATCH_BASE_URL}/lol/match/v5/matches/by-puuid/{quote(puuid, safe='')}/ids"
+            f"?start={start}&count={batch_size}&queue={QUEUE_RANKED_SOLO}&type=ranked"
+        )
+        if start_time is not None:
+            url += f"&startTime={start_time}"
+        if end_time is not None:
+            url += f"&endTime={end_time}"
+        payload = riot_get_safe(url)
 
-    return [str(match_id) for match_id in payload]
+        if not isinstance(payload, list):
+            raise TypeError("Expected a list of match IDs from the Riot API.")
+
+        batch = [str(match_id) for match_id in payload]
+        if not batch:
+            break
+
+        all_ids.extend(batch)
+        start += len(batch)
+
+        if len(batch) < batch_size:
+            break
+
+    return list(dict.fromkeys(all_ids))[:count]
 
 
 def get_match_detail(match_id: str) -> bool:
@@ -205,17 +246,21 @@ def get_match_timeline(match_id: str) -> bool:
     return True
 
 
-def run_collection(count: int = DEFAULT_MATCH_COUNT) -> None:
+def run_collection(
+    count: int = DEFAULT_MATCH_COUNT,
+    start_time: int | None = None,
+    end_time: int | None = None,
+) -> None:
     """Collect match details and timelines for the configured Riot account."""
 
-    load_dotenv(DOTENV_PATH, override=True)
+    load_dotenv(DOTENV_PATH)
 
     puuid = os.getenv("PUUID", "").strip()
     if not puuid:
         game_name, tag = _resolve_account_identity()
         puuid = get_puuid(game_name, tag)
 
-    match_ids = get_match_ids(puuid, count=count)
+    match_ids = get_match_ids(puuid, count=count, start_time=start_time, end_time=end_time)
     total_matches = len(match_ids)
 
     if total_matches == 0:

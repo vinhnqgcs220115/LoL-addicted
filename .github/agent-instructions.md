@@ -2,7 +2,7 @@
 
 Personal DS portfolio project — analyzing ranked LoL performance via the official Riot Games API. Single-summoner scope, no real-time in-game interaction. End product: a live Streamlit dashboard deployed on Streamlit Cloud.
 
-## Architecture
+## Target Architecture
 
 `collector.py` → `data/raw/` (JSON) → `processor.py` → DuckDB → `features.py` → `models.py` → `dashboard/app.py`
 
@@ -28,7 +28,7 @@ Vietnam server uses three distinct hosts — using the wrong one causes silent 4
 
 ## Data Rules
 
-Raw files in `data/raw/` are write-once. Never overwrite after saving. DuckDB is the single source of truth for all processed data. `game_version` must be stored on every match row — parse from `match["info"]["gameVersion"]`, keep only the first two dot-separated segments (e.g. `"16.11"`).
+Raw files in `data/raw/` are write-once. Never overwrite after saving. DuckDB is the single source of truth for all processed data. `game_version` must be stored on every match row: parse `match["info"]["gameVersion"]` and keep the first two dot-separated segments. Store the API-derived form (for example, `"16.12"` even when project discussions call the patch `26.12`) and never hardcode a current patch.
 
 ## Code Conventions
 
@@ -40,4 +40,4 @@ Type hints on all functions. All secrets from `.env` via `python-dotenv` — nev
 - No Riot API calls outside `collector.py`
 - No writes to `data/raw/` after initial save
 - No logic inside `dashboard/app.py`
-- Never commit `.env`, `*.duckdb`, or `data/raw/`
+- Never commit `.env`, `data/raw/`, or local `*.duckdb` files; `data/lol_deploy.duckdb` is the only deployment exception

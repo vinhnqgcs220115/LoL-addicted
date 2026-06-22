@@ -10,7 +10,7 @@ from src import processor
 from tests.conftest import SAMPLE_MATCH_ID, SAMPLE_PUUID
 
 
-def test_init_schema_creates_both_tables() -> None:
+def test_init_schema_creates_all_tables() -> None:
     conn = duckdb.connect(":memory:")
     try:
         processor.init_schema(conn)
@@ -20,6 +20,7 @@ def test_init_schema_creates_both_tables() -> None:
 
     assert "matches" in tables
     assert "match_timelines" in tables
+    assert "match_deaths" in tables
 
 
 def test_get_participant_and_id(sample_match: dict[str, object]) -> None:
@@ -87,6 +88,8 @@ def test_extract_timeline_rows_uses_participant_id(
         "cs": 0,
         "xp": 0,
         "kills": 0,
+        "position_x": 14321,
+        "position_y": 14673,
     }
     assert rows[-1] == {
         "match_id": SAMPLE_MATCH_ID,
@@ -95,6 +98,8 @@ def test_extract_timeline_rows_uses_participant_id(
         "cs": 221,
         "xp": 13381,
         "kills": 5,
+        "position_x": 14096,
+        "position_y": 13008,
     }
 
 
@@ -225,3 +230,118 @@ def test_run_pipeline_raises_when_puuid_missing(
 
     with pytest.raises(ValueError, match="Missing PUUID"):
         processor.run_pipeline()
+
+
+# ---------------------------------------------------------------------------
+# extract_death_rows tests
+# ---------------------------------------------------------------------------
+
+def _make_minimal_match(match_id: str, puuid: str, participant_id: int) -> dict:
+    return {
+        "metadata": {"matchId": match_id},
+        "info": {
+            "participants": [
+                {
+                    "puuid": puuid,
+                    "participantId": participant_id,
+                    "championName": "Fizz",
+                    "teamId": 100,
+                }
+            ]
+        },
+    }
+
+
+def test_extract_death_rows_basic() -> None:
+    match = _make_minimal_match("VN2_TEST", SAMPLE_PUUID, 1)
+    timeline = {
+        "info": {
+            "frames": [
+                {
+                    "timestamp": 300000,  # minute 5
+                    "participantFrames": {
+                        "1": {
+                            "totalGold": 3000,
+                            "minionsKilled": 50,
+                            "jungleMinionsKilled": 0,
+                            "xp": 2000,
+                            "position": {"x": 7500, "y": 7500},
+                        }
+                    },
+                    "events": [
+                        {"type": "CHAMPION_KILL", "victimId": 1, "timestamp": 300000}
+                    ],
+                }
+            ]
+        }
+    }
+
+    rows = processor.extract_death_rows(match, timeline, SAMPLE_PUUID)
+
+    assert len(rows) == 1
+    assert rows[0]["death_number"] == 1
+    assert rows[0]["timestamp_min"] == 5
+    assert rows[0]["gold_at_death"] is not None
+    assert isinstance(rows[0]["gold_at_death"], int)
+
+
+def test_extract_death_rows_no_deaths() -> None:
+    match = _make_minimal_match("VN2_TEST", SAMPLE_PUUID, 1)
+    timeline = {
+        "info": {
+            "frames": [
+                {
+                    "timestamp": 300000,
+                    "participantFrames": {
+                        "1": {
+                            "totalGold": 3000,
+                            "minionsKilled": 50,
+                            "jungleMinionsKilled": 0,
+                            "xp": 2000,
+                            "position": {"x": 7500, "y": 7500},
+                        }
+                    },
+                    "events": [
+                        # Kill by participant 1 (killerId=1), not a death
+                        {"type": "CHAMPION_KILL", "killerId": 1, "victimId": 5, "timestamp": 300000}
+                    ],
+                }
+            ]
+        }
+    }
+
+    rows = processor.extract_death_rows(match, timeline, SAMPLE_PUUID)
+
+    assert rows == []
+
+
+def test_extract_death_rows_missing_snapshot() -> None:
+    match = _make_minimal_match("VN2_TEST", SAMPLE_PUUID, 1)
+    # Only a frame at minute 0; death event at timestamp=420000 (minute 7)
+    timeline = {
+        "info": {
+            "frames": [
+                {
+                    "timestamp": 0,  # minute 0
+                    "participantFrames": {
+                        "1": {
+                            "totalGold": 500,
+                            "minionsKilled": 0,
+                            "jungleMinionsKilled": 0,
+                            "xp": 0,
+                            "position": {"x": 7500, "y": 7500},
+                        }
+                    },
+                    "events": [
+                        {"type": "CHAMPION_KILL", "victimId": 1, "timestamp": 420000}
+                    ],
+                }
+            ]
+        }
+    }
+
+    rows = processor.extract_death_rows(match, timeline, SAMPLE_PUUID)
+
+    assert len(rows) == 1
+    assert rows[0]["gold_at_death"] is None
+    assert rows[0]["cs_at_death"] is None

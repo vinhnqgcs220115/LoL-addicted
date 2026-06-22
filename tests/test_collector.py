@@ -142,9 +142,174 @@ def test_run_collection_prints_message_when_no_matches_found(
     monkeypatch.setattr(collector, "load_dotenv", lambda *args, **kwargs: None)
     monkeypatch.setenv("PUUID", "some-puuid")
     monkeypatch.setattr(collector, "RAW_DATA_DIR", tmp_path)
-    monkeypatch.setattr(collector, "get_match_ids", lambda puuid, count: [])
+    monkeypatch.setattr(collector, "get_match_ids", lambda puuid, count, start_time=None, end_time=None: [])
 
     collector.run_collection()
     captured = capsys.readouterr()
 
     assert "No ranked Solo/Duo matches found." in captured.out
+
+
+# ---------------------------------------------------------------------------
+# get_match_ids — pagination tests
+# ---------------------------------------------------------------------------
+
+
+def test_get_match_ids_single_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    """count=50: one request, returns exactly 50 IDs."""
+    ids = [f"VN2_{i:04d}" for i in range(50)]
+    call_count = 0
+
+    def fake_riot_get_safe(url: str) -> list[str]:
+        nonlocal call_count
+        call_count += 1
+        return ids
+
+    monkeypatch.setattr(collector, "riot_get_safe", fake_riot_get_safe)
+
+    result = collector.get_match_ids("test-puuid", count=50)
+
+    assert call_count == 1
+    assert len(result) == 50
+    assert result == ids
+
+
+def test_get_match_ids_exact_two_pages(monkeypatch: pytest.MonkeyPatch) -> None:
+    """count=150: two requests, returns 150 unique IDs in order."""
+    page1 = [f"VN2_A{i:03d}" for i in range(100)]
+    page2 = [f"VN2_B{i:03d}" for i in range(50)]
+    pages = [page1, page2]
+    call_count = 0
+
+    def fake_riot_get_safe(url: str) -> list[str]:
+        nonlocal call_count
+        call_count += 1
+        return pages[call_count - 1]
+
+    monkeypatch.setattr(collector, "riot_get_safe", fake_riot_get_safe)
+
+    result = collector.get_match_ids("test-puuid", count=150)
+
+    assert call_count == 2
+    assert len(result) == 150
+    assert len(set(result)) == 150  # no duplicates
+
+
+def test_get_match_ids_early_termination_history_exhausted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """count=300: third page returns 30 (< 100 requested) — loop stops early."""
+    page1 = [f"VN2_A{i:03d}" for i in range(100)]
+    page2 = [f"VN2_B{i:03d}" for i in range(100)]
+    page3 = [f"VN2_C{i:03d}" for i in range(30)]
+    pages = [page1, page2, page3]
+    call_count = 0
+
+    def fake_riot_get_safe(url: str) -> list[str]:
+        nonlocal call_count
+        call_count += 1
+        return pages[call_count - 1]
+
+    monkeypatch.setattr(collector, "riot_get_safe", fake_riot_get_safe)
+
+    result = collector.get_match_ids("test-puuid", count=300)
+
+    assert call_count == 3
+    assert len(result) == 230
+
+
+def test_get_match_ids_empty_response_on_first_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """count=100: empty first response returns empty list without error."""
+    monkeypatch.setattr(collector, "riot_get_safe", lambda url: [])
+
+    result = collector.get_match_ids("test-puuid", count=100)
+
+    assert result == []
+
+
+def test_get_match_ids_count_truncation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """count=150: each page returns 100 — result must be exactly 150, not 200."""
+    call_count = 0
+
+    def fake_riot_get_safe(url: str) -> list[str]:
+        nonlocal call_count
+        call_count += 1
+        offset = (call_count - 1) * 100
+        return [f"VN2_{offset + i:04d}" for i in range(100)]
+
+    monkeypatch.setattr(collector, "riot_get_safe", fake_riot_get_safe)
+
+    result = collector.get_match_ids("test-puuid", count=150)
+
+    assert len(result) == 150
+    assert len(set(result)) == 150  # no duplicates
+
+
+def test_get_match_ids_includes_start_time_in_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """start_time is appended to the URL as startTime query param."""
+    captured_urls: list[str] = []
+
+    def fake_riot_get_safe(url: str) -> list[str]:
+        captured_urls.append(url)
+        return [f"VN2_{i:04d}" for i in range(10)]
+
+    monkeypatch.setattr(collector, "riot_get_safe", fake_riot_get_safe)
+
+    collector.get_match_ids("test-puuid", count=10, start_time=1736467200)
+
+    assert len(captured_urls) == 1
+    assert "startTime=1736467200" in captured_urls[0]
+
+
+def test_get_match_ids_no_time_params_url_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without time params, URL contains neither startTime nor endTime."""
+    captured_urls: list[str] = []
+
+    def fake_riot_get_safe(url: str) -> list[str]:
+        captured_urls.append(url)
+        return [f"VN2_{i:04d}" for i in range(10)]
+
+    monkeypatch.setattr(collector, "riot_get_safe", fake_riot_get_safe)
+
+    collector.get_match_ids("test-puuid", count=10)
+
+    assert len(captured_urls) == 1
+    assert "startTime" not in captured_urls[0]
+    assert "endTime" not in captured_urls[0]
+
+
+def test_riot_get_safe_retries_on_connection_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    call_count = 0
+
+    def fake_get(*args: Any, **kwargs: Any) -> DummyResponse:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise requests.ConnectionError("simulated network failure")
+        return DummyResponse(200, payload={"ok": True})
+
+    monkeypatch.setenv("RIOT_API_KEY", "test-key")
+    monkeypatch.setattr(collector.requests, "get", fake_get)
+    monkeypatch.setattr(collector.time, "sleep", lambda *_: None)
+
+    result = collector.riot_get_safe("https://example.test/resource")
+    assert result == {"ok": True}
+    assert call_count == 2
+
+
+def test_riot_get_safe_raises_after_all_retries_on_connection_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def always_fail(*args: Any, **kwargs: Any) -> None:
+        raise requests.ConnectionError("persistent failure")
+
+    monkeypatch.setenv("RIOT_API_KEY", "test-key")
+    monkeypatch.setattr(collector.requests, "get", always_fail)
+    monkeypatch.setattr(collector.time, "sleep", lambda *_: None)
+
+    with pytest.raises(requests.ConnectionError):
+        collector.riot_get_safe("https://example.test/resource")

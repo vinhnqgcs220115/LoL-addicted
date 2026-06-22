@@ -2,9 +2,9 @@
 
 Personal DS portfolio project — analyzing ranked LoL performance via the official Riot Games API. Single-summoner scope, no real-time in-game interaction. End product: a live Streamlit dashboard deployed on Streamlit Cloud.
 
-## Architecture
+## Target Architecture
 
-Data flows in one direction. `collector.py` fetches from Riot and persists raw JSON to `data/raw/`. `processor.py` parses those files into DuckDB. `features.py` builds the feature matrix from DuckDB tables. `models.py` trains and serializes. `dashboard/app.py` renders only — imports from `src/`, holds no logic. Notebooks are sandboxed exploration and are never imported by `src/`.
+Current and planned data flow moves in one direction. `collector.py` fetches from Riot and persists raw JSON to `data/raw/`. `processor.py` parses those files into DuckDB. `features.py` builds the feature matrix from DuckDB tables. `models.py` trains and serializes. `dashboard/app.py` will render only — importing from `src/` and holding no business logic. Notebooks are sandboxed exploration and are never imported by `src/`.
 
 ## Module Contracts
 
@@ -20,9 +20,9 @@ Each module owns exactly one layer. Never reach across.
 
 ## Data Rules
 
-Files in `data/raw/` are write-once. Never modify after saving. DuckDB is the single source of truth for processed data. Schema is declared once in `processor.py::init_schema()`. All column names in `snake_case`. Timestamps as ISO 8601 strings. No `SELECT *`.
+Files in `data/raw/` are write-once. Never modify after saving. DuckDB is the single source of truth for processed data. Schema is declared once in `processor.py::init_schema()`. All column names use `snake_case`; timestamps use ISO 8601 strings. Use explicit columns when reading persistent tables. `SELECT *` is acceptable only for controlled registered DataFrames whose schema is defined in code.
 
-`game_version` must be stored on every match row. Parse it from `match["info"]["gameVersion"]` in `processor.py` — the raw value looks like `"26.11.xxxxxxx"`, and the patch is the first two dot-separated segments. This column is the basis for all patch-scoped filtering and analysis.
+`game_version` must be stored on every match row. Parse it from `match["info"]["gameVersion"]` in `processor.py` and keep the first two dot-separated segments. Riot API values use labels such as `"16.12.xxxxxxx"`; project discussions may call the same patch `26.12`. Store the API-derived `16.12` form and never hardcode a current patch.
 
 ## Code Conventions
 
@@ -44,14 +44,14 @@ Free dev key expires every 24h — must regenerate at `developer.riotgames.com`.
 - No Riot API calls outside `collector.py`
 - No writes to `data/raw/` after initial save
 - No logic inside `dashboard/app.py`
-- Never commit `.env`, `*.duckdb`, or `data/raw/`
+- Never commit `.env`, `data/raw/`, or local `*.duckdb` files; `data/lol_deploy.duckdb` is the only deployment exception
 
 ## Preferred Libraries
 
 | Purpose | Library |
 |---|---|
 | Data wrangling | `pandas`, `duckdb` |
-| ML | `xgboost`, `scikit-learn`, `joblib` |
+| ML | `scikit-learn`, `joblib` |
 | Charts | `plotly` (dashboard), `seaborn` (notebooks only) |
 | Dashboard | `streamlit` |
 | Linting | `ruff` |
@@ -69,7 +69,7 @@ After every ingestion run, verify DuckDB before moving forward. The minimum chec
 - `MIN` and `MAX` of `game_datetime` fall within an expected range
 - `match_timelines` row count is roughly `matches count × average game duration in minutes`
 
-If all pass, mark the task done in `context.md` and move on.
+If all pass, mark the task done in `CONTEXT.md` and move on.
 
 ## Debugging
 
@@ -93,7 +93,7 @@ Common failure patterns:
 | DuckDB "column not found" | Schema in `init_schema()` is out of sync with what `processor.py` inserts |
 | Tilt index looks wrong | Missing `.shift(1)` — current game result is leaking into its own feature |
 
-If stuck after going through all three steps, log the issue in `context.md` under Known Issues with what was already tried, and move to a different task. Return with fresh context.
+If stuck after going through all three steps, log the issue in `CONTEXT.md` under Known Issues with what was already tried, and move to a different task. Return with fresh context.
 
 ## Testing Strategy
 
