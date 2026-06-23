@@ -1,7 +1,7 @@
 # Project Context
 
-**Phase:** 3 complete — pending commit before Phase 4
-**Last updated:** 2026-06-23
+**Phase:** 4 implementation complete — Streamlit Cloud deployment pending
+**Last updated:** 2026-06-24
 
 ---
 
@@ -25,7 +25,7 @@
 - [x] Save `models/kmeans.pkl` and `models/scaler.pkl`, print cluster sizes and silhouette score, and write `cluster_labels` to DuckDB
 
 ### Phase 4 — Dashboard & Deploy
-- [ ] `dashboard/app.py`: Overview / Champions / Patterns tabs (3 tabs, no Predictor)
+- [x] `dashboard/app.py`: Overview / Champions / Patterns tabs (3 tabs, no Predictor)
 - [ ] Deployed to Streamlit Cloud with public URL
 - [ ] `README.md` with screenshots and live demo link
 
@@ -47,8 +47,9 @@ Death attribution    : reported=4,124, stored=4,124, mismatched matches=0
 Timelines collected  : 513 (15,273 timeline rows)
 Feature matrix       : 328 rows, 19 columns, 0 NULL — Season 16 mid only
 Clustering           : trained — 328 labels, silhouette 0.245, cluster sizes 166 / 103 / 7 / 52
-Tests                : 49 passed; Ruff clean
-Dashboard            : not started
+Tests                : 51 passed; Ruff clean
+Deployment snapshot  : 328 sanitized matches; 0 original Riot match IDs
+Dashboard            : 3 tabs implemented; local Streamlit runtime verified
 Live URL             : —
 ```
 

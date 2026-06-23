@@ -30,6 +30,7 @@ N_CLUSTERS = 4
 RANDOM_STATE = 42
 N_INIT = 20
 
+
 def fit_clusters(
     feature_df: pd.DataFrame,
 ) -> tuple[KMeans, StandardScaler, np.ndarray, float]:
@@ -115,6 +116,49 @@ def train_and_persist(
     print(f"Saved -> {models_dir / 'scaler.pkl'}")
     print(f"Labels written -> DuckDB cluster_labels ({len(labels)} rows)")
     return profile, score
+
+
+def query_cluster_summary(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Return cluster sizes and feature means; both source tables must be populated."""
+    feature_means = ", ".join(
+        f"AVG(f.{column}) AS {column}" for column in FEATURE_COLS
+    )
+    return conn.execute(f"""
+        SELECT
+            l.cluster_id,
+            COUNT(*)::INTEGER AS size,
+            {feature_means}
+        FROM cluster_labels l
+        JOIN feature_matrix f ON f.match_id = l.match_id
+        GROUP BY l.cluster_id
+        ORDER BY l.cluster_id
+    """).df()
+
+
+def query_gold_trajectories(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Return sufficiently sampled cluster gold curves; labels and timelines are required."""
+    return conn.execute("""
+        WITH cluster_sizes AS (
+            SELECT cluster_id, COUNT(*) AS cluster_size
+            FROM cluster_labels
+            GROUP BY cluster_id
+        ),
+        per_minute AS (
+            SELECT
+                l.cluster_id,
+                t.timestamp_min,
+                COUNT(*) AS match_count,
+                AVG(t.gold)::DOUBLE AS avg_gold
+            FROM cluster_labels l
+            JOIN match_timelines t ON t.match_id = l.match_id
+            GROUP BY l.cluster_id, t.timestamp_min
+        )
+        SELECT p.cluster_id, p.timestamp_min, p.avg_gold
+        FROM per_minute p
+        JOIN cluster_sizes s ON s.cluster_id = p.cluster_id
+        WHERE p.match_count >= GREATEST(3, ROUND(s.cluster_size * 0.5))
+        ORDER BY p.cluster_id ASC, p.timestamp_min ASC
+    """).df()
 
 
 def run_models() -> None:

@@ -1,6 +1,6 @@
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("sync", "collect", "process", "features", "models", "refresh", "rebuild", "deploy-db", "test", "smoke", "help")]
+    [ValidateSet("collect", "dashboard", "deploy-db", "features", "help", "models", "process", "rebuild", "refresh", "smoke", "sync", "test")]
     [string]$Command = "help"
 )
 
@@ -8,9 +8,8 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $pythonPath = Join-Path $repoRoot ".venv\Scripts\python.exe"
-$requirementsPath = Join-Path $repoRoot "requirements.txt"
+$requirementsPath = Join-Path $repoRoot "requirements-dev.txt"
 $databasePath = Join-Path $repoRoot "data\lol.duckdb"
-$deployDatabasePath = Join-Path $repoRoot "data\lol_deploy.duckdb"
 
 function Invoke-Checked {
     param([scriptblock]$Command)
@@ -27,12 +26,13 @@ function Show-Usage {
     Write-Host "Commands:"
     Write-Host "  sync      Install requirements into .venv with uv"
     Write-Host "  collect   Download configured Riot match data"
+    Write-Host "  dashboard  Start the Streamlit dashboard locally"
     Write-Host "  process   Load raw JSON into DuckDB"
     Write-Host "  features  Rebuild the feature matrix"
     Write-Host "  models    Train clustering and persist labels"
     Write-Host "  refresh   Run collect, process, features, and models"
     Write-Host "  rebuild   Recreate DuckDB from raw data, then rebuild features and models"
-    Write-Host "  deploy-db Copy the verified local DuckDB file for Streamlit deployment"
+    Write-Host "  deploy-db  Build and sanitise the deployment database"
     Write-Host "  test      Run the pytest suite"
     Write-Host "  smoke     Run a five-match live pipeline check"
     Write-Host "  help      Show this message"
@@ -63,7 +63,7 @@ print(counts)
     $script | & $pythonPath -
 }
 
-if ($Command -notin @("sync", "deploy-db", "help") -and -not (Test-Path $pythonPath)) {
+if ($Command -notin @("sync", "help") -and -not (Test-Path $pythonPath)) {
     throw "Expected virtual environment Python at $pythonPath"
 }
 
@@ -103,11 +103,10 @@ try {
             Invoke-Checked { & $pythonPath -m src.models }
         }
         "deploy-db" {
-            if (-not (Test-Path $databasePath)) {
-                throw "Expected local database at $databasePath"
-            }
-            Copy-Item -LiteralPath $databasePath -Destination $deployDatabasePath -Force
-            Write-Host "Created $deployDatabasePath"
+            Invoke-Checked { & $pythonPath (Join-Path $repoRoot "scripts\build_deploy_db.py") }
+        }
+        "dashboard" {
+            Invoke-Checked { & $pythonPath -m streamlit run dashboard\app.py }
         }
         "test" {
             Invoke-Checked { & $pythonPath -m pytest tests -q }
