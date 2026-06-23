@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import duckdb
@@ -6,13 +7,20 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.features import (
+BASE_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BASE_DIR))
+
+from src.features import (  # noqa: E402
     ANALYSIS_ROLE,
     CURRENT_SEASON_START,
     champion_matchup_stats,
     death_context,
 )
-from src.models import FEATURE_COLS, query_cluster_summary, query_gold_trajectories
+from src.models import (  # noqa: E402
+    FEATURE_COLS,
+    query_cluster_summary,
+    query_gold_trajectories,
+)
 
 CLUSTER_NAMES: dict[int, str] = {
     0: "Cluster 0",
@@ -22,7 +30,7 @@ CLUSTER_NAMES: dict[int, str] = {
 }
 # TODO: assign names after reviewing notebooks/02_clustering.ipynb
 
-DB_PATH = Path(__file__).resolve().parents[1] / "data" / "lol_deploy.duckdb"
+DB_PATH = BASE_DIR / "data" / "lol_deploy.duckdb"
 TIME_BUCKET_ORDER = ["morning", "afternoon", "evening", "night"]
 
 st.set_page_config(
