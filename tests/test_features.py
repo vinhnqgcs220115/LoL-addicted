@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import duckdb
 
-from src.features import build_feature_matrix, death_context
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+from src import processor
+from src.features import (
+    build_feature_matrix,
+    champion_matchup_stats,
+    death_context,
+    is_throw_game,
+    roam_timing,
+    tilt_index,
+)
 
 S15_DATETIME = "2025-12-15T12:00:00+00:00"  # before CURRENT_SEASON_START
 S16_DATETIME_A = "2026-01-15T12:00:00+00:00"  # after CURRENT_SEASON_START
@@ -19,64 +22,7 @@ S16_DATETIME_D = "2026-03-01T12:00:00+00:00"
 def _make_conn() -> duckdb.DuckDBPyConnection:
     """Return an in-memory DuckDB connection with minimal schema and fixture data."""
     conn = duckdb.connect(":memory:")
-
-    conn.execute("""
-        CREATE TABLE matches (
-            match_id VARCHAR PRIMARY KEY,
-            puuid VARCHAR,
-            game_datetime VARCHAR,
-            game_version VARCHAR,
-            queue_id INTEGER,
-            game_duration_sec INTEGER,
-            champion_id INTEGER,
-            champion_name VARCHAR,
-            team_id INTEGER,
-            team_position VARCHAR,
-            lane VARCHAR,
-            win BOOLEAN,
-            kills INTEGER,
-            deaths INTEGER,
-            assists INTEGER,
-            kda DOUBLE,
-            cs_total INTEGER,
-            cs_per_min DOUBLE,
-            gold_earned INTEGER,
-            damage_dealt_to_champions INTEGER,
-            vision_score INTEGER,
-            opp_champion_name VARCHAR,
-            opp_cs_total INTEGER,
-            opp_gold_earned INTEGER,
-            opp_kills INTEGER,
-            opp_deaths INTEGER,
-            opp_assists INTEGER
-        )
-    """)
-
-    conn.execute("""
-        CREATE TABLE match_timelines (
-            match_id VARCHAR,
-            timestamp_min INTEGER,
-            gold INTEGER,
-            cs INTEGER,
-            xp INTEGER,
-            kills INTEGER,
-            position_x INTEGER,
-            position_y INTEGER,
-            PRIMARY KEY (match_id, timestamp_min)
-        )
-    """)
-
-    conn.execute("""
-        CREATE TABLE match_deaths (
-            match_id VARCHAR,
-            death_number INTEGER,
-            timestamp_ms INTEGER,
-            timestamp_min INTEGER,
-            gold_at_death INTEGER,
-            cs_at_death INTEGER,
-            PRIMARY KEY (match_id, death_number)
-        )
-    """)
+    processor.init_schema(conn)
 
     # --- Season 15 match (should be excluded by season filter) ---
     conn.execute("""
@@ -140,13 +86,7 @@ def _make_conn() -> duckdb.DuckDBPyConnection:
     return conn
 
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
-
-
 def test_build_feature_matrix_season_filter() -> None:
-    """Only Season 16 match IDs appear in the result."""
     conn = _make_conn()
     fm = build_feature_matrix(conn)
     conn.close()
@@ -156,8 +96,63 @@ def test_build_feature_matrix_season_filter() -> None:
     assert s16_ids == set(fm["match_id"].values)
 
 
+def test_analytics_exclude_non_mid_matches() -> None:
+    conn = _make_conn()
+    conn.execute("""
+        INSERT INTO matches VALUES (
+            'S16_BOTTOM', 'puuid1', ?, '16.1', 420,
+            1800, 1, 'Zed', 100, 'BOTTOM', 'BOTTOM', true,
+            5, 2, 3, 4.0, 180, 6.0, 12000, 20000, 30,
+            'Viktor', 160, 11000, 2, 3, 1
+        )
+    """, [S16_DATETIME_D])
+
+    fm = build_feature_matrix(conn)
+    matchups = champion_matchup_stats(conn)
+    conn.close()
+
+    assert "S16_BOTTOM" not in fm["match_id"].values
+    zed_matchup = matchups[
+        (matchups["champion_name"] == "Zed")
+        & (matchups["opp_champion_name"] == "Viktor")
+    ].iloc[0]
+    assert zed_matchup["games"] == 3
+
+
+def test_is_throw_game_uses_current_mid_scope() -> None:
+    conn = _make_conn()
+    result = is_throw_game(conn)
+    conn.close()
+
+    assert set(result["match_id"]) == {"S16_A", "S16_B", "S16_C", "S16_D"}
+    assert result["gold_delta"].eq(0.0).all()
+
+
+def test_tilt_index_uses_only_prior_current_season_mid_games() -> None:
+    conn = _make_conn()
+    result = tilt_index(conn)
+    conn.close()
+
+    assert list(result["match_id"]) == ["S16_A", "S16_B", "S16_C", "S16_D"]
+    assert list(result["tilt_index"].round(4)) == [0.5, 1.0, 0.5, 0.6667]
+
+
+def test_roam_timing_detects_two_minute_mid_roam() -> None:
+    conn = _make_conn()
+    conn.execute("""
+        UPDATE match_timelines
+        SET position_x = 12000, position_y = 7000
+        WHERE match_id = 'S16_A' AND timestamp_min IN (5, 6)
+    """)
+    result = roam_timing(conn)
+    conn.close()
+
+    roam = result[result["match_id"] == "S16_A"].iloc[0]
+    assert roam["roam_start_min"] == 5
+    assert roam["roam_end_min"] == 6
+
+
 def test_build_feature_matrix_has_pass_through_columns() -> None:
-    """Result contains win, game_datetime, champion_name with no NaN."""
     conn = _make_conn()
     fm = build_feature_matrix(conn)
     conn.close()
@@ -168,7 +163,6 @@ def test_build_feature_matrix_has_pass_through_columns() -> None:
 
 
 def test_tilt_spiral_ratio_bounds() -> None:
-    """tilt_spiral_ratio is in [0.0, 1.0] for all rows, no NaN."""
     conn = _make_conn()
     fm = build_feature_matrix(conn)
     conn.close()
@@ -180,7 +174,6 @@ def test_tilt_spiral_ratio_bounds() -> None:
 
 
 def test_tilt_spiral_ratio_zero_deaths() -> None:
-    """A game with 0 deaths produces tilt_spiral_ratio=0.0 and max_death_streak=0."""
     conn = _make_conn()
     fm = build_feature_matrix(conn)
     conn.close()
@@ -192,7 +185,6 @@ def test_tilt_spiral_ratio_zero_deaths() -> None:
 
 
 def test_max_death_streak_consecutive_count() -> None:
-    """S16_A has 4 deaths where deaths 2,3,4 are within 3 min each: streak = 3."""
     conn = _make_conn()
     fm = build_feature_matrix(conn)
     conn.close()
@@ -202,7 +194,6 @@ def test_max_death_streak_consecutive_count() -> None:
 
 
 def test_no_nan_in_feature_matrix() -> None:
-    """No column in the Season 16 slice of the feature matrix has any NaN."""
     conn = _make_conn()
     fm = build_feature_matrix(conn)
     conn.close()
@@ -212,7 +203,6 @@ def test_no_nan_in_feature_matrix() -> None:
 
 
 def test_death_context_excludes_s15_deaths() -> None:
-    """S15_MATCH deaths must not appear in death_context output."""
     conn = _make_conn()
     conn.execute("INSERT INTO match_deaths VALUES ('S15_MATCH', 1, 300000, 5, 2750, 40)")
     result = death_context(conn)
@@ -222,7 +212,6 @@ def test_death_context_excludes_s15_deaths() -> None:
 
 
 def test_avg_cs_sacrifice_is_log_transformed() -> None:
-    """avg_cs_sacrifice values are log1p-transformed — max must be < 5, no NaN."""
     conn = _make_conn()
     fm = build_feature_matrix(conn)
     conn.close()

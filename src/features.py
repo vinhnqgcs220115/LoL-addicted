@@ -15,6 +15,7 @@ MID_LANE_CORRIDOR_WIDTH: int = 2500
 ROAM_PHASE_START_MIN: int = 4
 ROAM_PHASE_END_MIN: int = 14
 CURRENT_SEASON_START: str = "2026-01-10T00:00:00+00:00"
+ANALYSIS_ROLE: str = "MIDDLE"
 EARLY_DEATH_THRESHOLD_MIN: int = 6    # deaths before this minute are classified as early
 TILT_SPIRAL_GAP_MIN: int = 3          # max minutes between deaths to count as a spiral
 TILT_WINDOW_GAMES: int = 5            # rolling window size for tilt index
@@ -35,7 +36,7 @@ def death_context(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     """Return per-death annotations classifying each death by context.
 
     Joins match_deaths with match_timelines average-gold lookup and matches
-    for game-level context. Returns one row per death across all games.
+    for game-level context. Returns one row per death in the current analysis scope.
 
     Columns: match_id, death_number, timestamp_min, gold_at_death,
     gold_lead_approx, is_overextension_ahead, is_deficit_fight,
@@ -52,7 +53,8 @@ def death_context(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         FROM match_deaths d
         JOIN matches m ON m.match_id = d.match_id
         WHERE m.game_datetime >= ?
-    """, [CURRENT_SEASON_START]).df()
+          AND m.team_position = ?
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
 
     if df.empty:
         return pd.DataFrame(columns=[
@@ -61,19 +63,20 @@ def death_context(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
             "is_early_death", "is_tilt_spiral", "is_post_laning_throw",
         ])
 
-    # Average gold per minute — baseline scoped to S16 to avoid cross-season contamination
+    # Average gold per minute within the current season/role scope.
     avg_gold = conn.execute("""
         SELECT mt.timestamp_min, AVG(mt.gold) AS avg_gold
         FROM match_timelines mt
         JOIN matches m ON m.match_id = mt.match_id
         WHERE m.game_datetime >= ?
+          AND m.team_position = ?
         GROUP BY mt.timestamp_min
-    """, [CURRENT_SEASON_START]).df()
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
 
     df = df.merge(avg_gold, on="timestamp_min", how="left")
     df["gold_lead_approx"] = df["gold_at_death"].fillna(0.0) - df["avg_gold"].fillna(0.0)
 
-    # Gold at the frame closest to minute 14 per match — S16 baseline only
+    # Gold at the frame closest to minute 14 within the current scope.
     gold_at_min14 = conn.execute("""
         WITH ranked AS (
             SELECT
@@ -87,11 +90,12 @@ def death_context(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
             JOIN matches m ON m.match_id = mt.match_id
             WHERE mt.timestamp_min BETWEEN 12 AND 16
               AND m.game_datetime >= ?
+              AND m.team_position = ?
         )
         SELECT match_id, gold_at_min14
         FROM ranked
         WHERE rn = 1
-    """, [CURRENT_SEASON_START]).df()
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
 
     player_avg_gold_at_14: float = float(gold_at_min14["gold_at_min14"].mean())
     df = df.merge(gold_at_min14, on="match_id", how="left")
@@ -148,13 +152,21 @@ def is_throw_game(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
             JOIN matches m ON m.match_id = mt.match_id
             WHERE mt.timestamp_min BETWEEN 12 AND 16
               AND m.game_datetime >= ?
+              AND m.team_position = ?
         )
         SELECT match_id, gold_at_14
         FROM ranked
         WHERE rn = 1
-    """, [CURRENT_SEASON_START]).df()
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
 
-    matches_df = conn.execute("SELECT match_id, win FROM matches").df()
+    matches_df = conn.execute(
+        """
+        SELECT match_id, win
+        FROM matches
+        WHERE game_datetime >= ? AND team_position = ?
+        """,
+        [CURRENT_SEASON_START, ANALYSIS_ROLE],
+    ).df()
     df = matches_df.merge(gold_df, on="match_id", how="inner")
 
     avg_gold_14: float = float(df["gold_at_14"].mean())
@@ -187,10 +199,11 @@ def roam_timing(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         JOIN matches m ON m.match_id = mt.match_id
         WHERE mt.timestamp_min BETWEEN 3 AND 16
           AND m.game_datetime >= ?
+          AND m.team_position = ?
         ORDER BY mt.match_id, mt.timestamp_min
-    """, [CURRENT_SEASON_START]).df()
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
 
-    # avg_cs baseline scoped to S16 to avoid cross-season contamination
+    # Average CS baseline within the current season/role scope.
     avg_cs_by_min = conn.execute("""
         SELECT
             mt.timestamp_min,
@@ -200,13 +213,18 @@ def roam_timing(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         JOIN matches m ON m.match_id = mt.match_id
         WHERE mt.timestamp_min BETWEEN 4 AND 14
           AND m.game_datetime >= ?
+          AND m.team_position = ?
         GROUP BY mt.timestamp_min
-    """, [CURRENT_SEASON_START]).df()
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
 
     avg_cs_per_min_global: float = float(
         conn.execute(
-            "SELECT AVG(cs_per_min) FROM matches WHERE game_datetime >= ?",
-            [CURRENT_SEASON_START],
+            """
+            SELECT AVG(cs_per_min)
+            FROM matches
+            WHERE game_datetime >= ? AND team_position = ?
+            """,
+            [CURRENT_SEASON_START, ANALYSIS_ROLE],
         ).fetchone()[0] or 0.0
     )
 
@@ -312,7 +330,8 @@ def champion_matchup_stats(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         WHERE opp_champion_name IS NOT NULL
           AND opp_cs_total IS NOT NULL
           AND game_datetime >= ?
-    """, [CURRENT_SEASON_START]).df()
+          AND team_position = ?
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
 
     # Opponent KDA computed per row to avoid division issues
     df["opp_kda"] = (df["opp_kills"] + df["opp_assists"]) / df["opp_deaths"].clip(lower=1)
@@ -353,8 +372,9 @@ def tilt_index(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     df = conn.execute("""
         SELECT match_id, game_datetime, win
         FROM matches
+        WHERE game_datetime >= ? AND team_position = ?
         ORDER BY game_datetime
-    """).df()
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
 
     win_float = df["win"].astype(float)
     df["tilt_index"] = (
@@ -372,9 +392,7 @@ def tilt_index(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
 def build_feature_matrix(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     """Join all feature functions into one row per match and persist to DuckDB.
 
-    Only Season 16 rows (game_datetime >= CURRENT_SEASON_START) are included.
-    Individual feature functions remain season-agnostic; filtering is applied
-    here via the base_df anchor.
+    Only Season 16 mid-lane rows are included.
 
     NaN fill strategy (documented per column):
     - tilt_index          : never NaN (rolling fills first game with 0.5)
@@ -389,17 +407,21 @@ def build_feature_matrix(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     - avg_cs_sacrifice : 0.0 then log1p-transformed — no roams → log1p(0) = 0
     - roam_impact_rate    : 0.5  — no roams → unknown, treat as neutral
     """
-    # Season-16 anchor — all merges are left-joined to this, so only S16 rows survive
+    # Season/role anchor: all merges are left-joined to this scope.
     base_df = conn.execute("""
         SELECT match_id, win, game_datetime, champion_name
         FROM matches
-        WHERE game_datetime >= ?
-    """, [CURRENT_SEASON_START]).df()
+        WHERE game_datetime >= ? AND team_position = ?
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
 
     tilt_df = tilt_index(conn)[["match_id", "tilt_index"]]
 
     # Temporal features from matches table
-    matches_df = conn.execute("SELECT match_id, game_datetime FROM matches").df()
+    matches_df = conn.execute("""
+        SELECT match_id, game_datetime
+        FROM matches
+        WHERE game_datetime >= ? AND team_position = ?
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
     matches_df["game_datetime"] = pd.to_datetime(matches_df["game_datetime"], format="ISO8601")
     matches_df["hour_of_day"] = matches_df["game_datetime"].dt.hour
     matches_df["day_of_week"] = matches_df["game_datetime"].dt.dayofweek  # 0 = Monday
@@ -502,6 +524,7 @@ def run_features() -> None:
     with duckdb.connect(str(DB_PATH)) as conn:
         fm = build_feature_matrix(conn)
         print(f"Season filter          : >= {CURRENT_SEASON_START}")
+        print(f"Role filter            : {ANALYSIS_ROLE}")
         print(f"Rows in feature_matrix : {len(fm)}")
         print(f"Columns                : {list(fm.columns)}")
         print(f"Throw games            : {int(fm['is_throw'].sum())}")

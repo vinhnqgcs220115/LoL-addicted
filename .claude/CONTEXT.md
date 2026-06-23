@@ -1,7 +1,7 @@
 # Project Context
 
-**Phase:** 4 — Dashboard & Deploy
-**Last updated:** 2026-06-22
+**Phase:** 3 complete — pending commit before Phase 4
+**Last updated:** 2026-06-23
 
 ---
 
@@ -16,7 +16,7 @@
 ### Phase 2 — EDA & Feature Engineering
 - [x] `notebooks/01_eda.ipynb`: death context analysis, throw pattern detection, roaming timing analysis (not generic win rate / KDA charts)
 - [x] `src/features.py`: `death_context()`, `is_throw_game()`, `roam_timing()`, `tilt_index`, `champion_matchup_stats()`, temporal features
-- [x] Verify: `feature_matrix` populated with no NULL values (386 Season 16 rows; 48 throw games, 64 comebacks)
+- [x] Verify: `feature_matrix` populated with no NULL values (328 Season 16 mid rows; 41 throw games, 53 comebacks)
 
 ### Phase 3 — ML Models
 - [x] `notebooks/02_clustering.ipynb`: executed centroid heatmap, cluster summary, and average gold trajectory analysis without pre-naming archetypes
@@ -39,10 +39,15 @@
 ## Current Status
 
 ```
-Matches collected    : 513 (386 games on Season 16, 127 games on Season 15 — S15 excluded from feature matrix)
+Matches collected    : 513 (328 S16 mid, 58 S16 off-role, 127 S15)
+Matches NULLs        : win=0, match_id=0, champion_name=0
+Matches date range   : 2025-09-11 to 2026-06-21
+Mid opponent fields  : champion=328/328, cs=328/328
+Death attribution    : reported=4,124, stored=4,124, mismatched matches=0
 Timelines collected  : 513 (15,273 timeline rows)
-Feature matrix       : 386 rows, 19 columns, 0 NULL — Season 16 only
-Clustering           : trained — 386 labels, silhouette 0.226, cluster sizes 76 / 24 / 169 / 117
+Feature matrix       : 328 rows, 19 columns, 0 NULL — Season 16 mid only
+Clustering           : trained — 328 labels, silhouette 0.245, cluster sizes 166 / 103 / 7 / 52
+Tests                : 49 passed; Ruff clean
 Dashboard            : not started
 Live URL             : —
 ```
@@ -65,6 +70,8 @@ Live URL             : —
 | Win predictor model removed | Model output not surfaceable in a useful way; clustering is sufficient |
 | Pro comparison added as stretch goal | Requires multi-server routing; blocked on Phase 2-4 completion |
 | Season 16 filter in feature matrix | S15 gold rates differ; mixed-era baselines distort `gold_lead_approx` and `gold_delta` |
+| Current analytics are mid-only | The project is personal and time-boxed; raw/processed off-role games remain available for future role-aware expansion |
+| Dashboard derives cluster means from DuckDB | `models/*.pkl` stay local and gitignored; feature means come from `feature_matrix` joined to `cluster_labels` |
 | Deployment uses committed `data/lol_deploy.duckdb` | Streamlit Cloud has no persistent disk; S3/LFS adds infra complexity for <10 MB; simple git commit is correct at this scale |
 
 ### Deployment notes (Phase 4)
@@ -73,13 +80,22 @@ Two DuckDB files, two different purposes:
 - `data/lol.duckdb` — development DB, gitignored, rebuilt locally from raw JSON
 - `data/lol_deploy.duckdb` — production read-only artifact, committed to git, read by the dashboard
 
-To update deployed data: regenerate `lol_deploy.duckdb` locally and commit the new file. The dashboard must read from `lol_deploy.duckdb`, not `lol.duckdb`.
+To update deployed data: verify `lol.duckdb`, run `.\scripts\workflow.ps1 deploy-db`, then commit the generated file. The dashboard must read from `lol_deploy.duckdb` in read-only mode, not `lol.duckdb`.
+
+Before the public deployment commit, review match-identifier exposure in the deployment database.
 
 ---
 
+## Phase 4 Decisions
+
+- Decide whether `is_early_death` appears in Overview or Patterns before implementing either tab.
+- Review current per-cluster means before assigning user-facing names. Until then, display numeric cluster IDs and measured values only.
+- Show cluster sample sizes in the dashboard; cluster 2 currently has only 7 games and must not support strong conclusions.
+- Keep the Champions tab mid-only. All-role support requires role-aware opponent extraction and a full rebuild.
+
 ## Known Issues
 
-None.
+None blocking Phase 4 after the pending repository commit.
 
 ---
 

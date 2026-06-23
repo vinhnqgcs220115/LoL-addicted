@@ -383,7 +383,7 @@ def extract_death_rows(
 
 
 def process_match(match_id: str, puuid: str, conn: duckdb.DuckDBPyConnection) -> None:
-    """Parse and insert one match and its timeline into DuckDB."""
+    """Parse one match, safely skipping missing raw files for direct callers."""
 
     match_path = RAW_DATA_DIR / f"{match_id}.json"
     timeline_path = RAW_DATA_DIR / f"{match_id}_timeline.json"

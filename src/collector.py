@@ -15,8 +15,6 @@ DOTENV_PATH = BASE_DIR / ".env"
 RAW_DATA_DIR = BASE_DIR / "data" / "raw"
 
 ACCOUNT_BASE_URL = "https://asia.api.riotgames.com"
-# Reserved for Summoner-v4 / League-v4 (rank, LP) — Stretch Goal: pro comparison
-SUMMONER_BASE_URL = "https://vn1.api.riotgames.com"
 MATCH_BASE_URL = "https://sea.api.riotgames.com"
 
 QUEUE_RANKED_SOLO = 420
@@ -194,23 +192,28 @@ def get_match_ids(
     return list(dict.fromkeys(all_ids))[:count]
 
 
-def get_match_detail(match_id: str) -> bool:
-    """Fetch and persist one raw match payload if it is not already on disk."""
-
-    raw_path = _detail_path(match_id)
+def _fetch_match_payload(
+    match_id: str,
+    raw_path: Path,
+    endpoint_suffix: str,
+    payload_name: str,
+) -> bool:
     if raw_path.exists():
         return True
 
-    url = f"{MATCH_BASE_URL}/lol/match/v5/matches/{quote(match_id, safe='')}"
+    url = (
+        f"{MATCH_BASE_URL}/lol/match/v5/matches/{quote(match_id, safe='')}"
+        f"{endpoint_suffix}"
+    )
 
     try:
         payload = riot_get_safe(url)
     except RiotNotFoundError:
-        print(f"Missing match detail for {match_id}")
+        print(f"Missing {payload_name} for {match_id}")
         return False
 
     if not isinstance(payload, dict):
-        raise TypeError("Expected a match-detail object from the Riot API.")
+        raise TypeError(f"Expected a {payload_name} object from the Riot API.")
 
     try:
         _save_raw(raw_path, payload)
@@ -218,32 +221,21 @@ def get_match_detail(match_id: str) -> bool:
         return True
 
     return True
+
+
+def get_match_detail(match_id: str) -> bool:
+    """Fetch and persist one raw match payload if it is not already on disk."""
+    return _fetch_match_payload(match_id, _detail_path(match_id), "", "match detail")
 
 
 def get_match_timeline(match_id: str) -> bool:
     """Fetch and persist one raw match timeline payload if it is not already on disk."""
-
-    raw_path = _timeline_path(match_id)
-    if raw_path.exists():
-        return True
-
-    url = f"{MATCH_BASE_URL}/lol/match/v5/matches/{quote(match_id, safe='')}/timeline"
-
-    try:
-        payload = riot_get_safe(url)
-    except RiotNotFoundError:
-        print(f"Missing match timeline for {match_id}")
-        return False
-
-    if not isinstance(payload, dict):
-        raise TypeError("Expected a match-timeline object from the Riot API.")
-
-    try:
-        _save_raw(raw_path, payload)
-    except FileExistsError:
-        return True
-
-    return True
+    return _fetch_match_payload(
+        match_id,
+        _timeline_path(match_id),
+        "/timeline",
+        "match timeline",
+    )
 
 
 def run_collection(

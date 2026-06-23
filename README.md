@@ -1,40 +1,41 @@
 # LOL Ranked Analytics
 
-Single-summoner League of Legends ranked analytics project built around the Riot Games API, raw JSON persistence, DuckDB processing, and a Streamlit dashboard.
+Single-summoner League of Legends analytics built with the Riot Games API, DuckDB, K-Means clustering, and a planned Streamlit dashboard. The current analytical scope is ranked mid-lane games from Season 16; collection and processing retain all roles for future expansion.
 
-## UV Workflow
+## Setup
 
-This repo uses the local virtual environment at `.venv` and installs dependencies with `uv pip`.
-
-From the repo root, use the workflow script:
+Install `uv`, then run from the repository root in PowerShell:
 
 ```powershell
+Copy-Item .env.example .env
 .\scripts\workflow.ps1 sync
+```
+
+Set `RIOT_API_KEY` and either `GAME_NAME` plus `TAG`, or an existing `PUUID`, in `.env`. The project uses Python 3.11 and creates `.venv` automatically.
+
+## Workflow
+
+```powershell
 .\scripts\workflow.ps1 collect
 .\scripts\workflow.ps1 process
+.\scripts\workflow.ps1 features
+.\scripts\workflow.ps1 models
 .\scripts\workflow.ps1 refresh
+.\scripts\workflow.ps1 rebuild
 .\scripts\workflow.ps1 test
 .\scripts\workflow.ps1 smoke
-.\scripts\workflow.ps1 status
+.\scripts\workflow.ps1 deploy-db
 ```
 
-What each command does:
+- `refresh` incrementally collects and runs the complete pipeline.
+- `rebuild` recreates `data/lol.duckdb` from immutable raw files, then rebuilds features and models. Use it after parser or schema changes.
+- `smoke` runs a five-match live pipeline check and requires a valid Riot API key.
+- `deploy-db` copies the verified local database to `data/lol_deploy.duckdb` for Streamlit Cloud.
 
-- `sync` activates `.venv\Scripts\Activate.ps1` and runs `uv pip install -r requirements.txt`
-- `collect` runs the Riot API collector in `src.collector`
-- `process` parses `data/raw/` into `data/lol.duckdb`
-- `refresh` runs collection and then processing in sequence
-- `test` runs `pytest` against the fixture-backed test suite in `tests/`
-- `smoke` runs a small live collection (`count=5`), processes the current raw dataset, and prints DuckDB counts
-- `status` shows whether the repo `.venv` is currently active by checking `$env:VIRTUAL_ENV`
+Every command stops on the first failed native process. Run `python -m ruff check src tests` and `.\scripts\workflow.ps1 test` before committing.
 
-## Terminal Activation
+## Deployment Data
 
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
-& .\.venv\Scripts\Activate.ps1
-uv pip install -r requirements.txt
-python -m src.collector
-python -m src.processor
-python -m pytest tests -q
-```
+The dashboard must open `data/lol_deploy.duckdb` read-only. Regenerate it locally with `deploy-db` after verification; never write to it in Streamlit Cloud. Review the database contents before making the repository public because match identifiers are included.
+
+Phase 4 will add the live URL and screenshots.

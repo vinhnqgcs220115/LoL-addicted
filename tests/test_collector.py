@@ -150,13 +150,7 @@ def test_run_collection_prints_message_when_no_matches_found(
     assert "No ranked Solo/Duo matches found." in captured.out
 
 
-# ---------------------------------------------------------------------------
-# get_match_ids — pagination tests
-# ---------------------------------------------------------------------------
-
-
 def test_get_match_ids_single_page(monkeypatch: pytest.MonkeyPatch) -> None:
-    """count=50: one request, returns exactly 50 IDs."""
     ids = [f"VN2_{i:04d}" for i in range(50)]
     call_count = 0
 
@@ -175,7 +169,6 @@ def test_get_match_ids_single_page(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_get_match_ids_exact_two_pages(monkeypatch: pytest.MonkeyPatch) -> None:
-    """count=150: two requests, returns 150 unique IDs in order."""
     page1 = [f"VN2_A{i:03d}" for i in range(100)]
     page2 = [f"VN2_B{i:03d}" for i in range(50)]
     pages = [page1, page2]
@@ -198,7 +191,6 @@ def test_get_match_ids_exact_two_pages(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_get_match_ids_early_termination_history_exhausted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """count=300: third page returns 30 (< 100 requested) — loop stops early."""
     page1 = [f"VN2_A{i:03d}" for i in range(100)]
     page2 = [f"VN2_B{i:03d}" for i in range(100)]
     page3 = [f"VN2_C{i:03d}" for i in range(30)]
@@ -221,7 +213,6 @@ def test_get_match_ids_early_termination_history_exhausted(
 def test_get_match_ids_empty_response_on_first_call(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """count=100: empty first response returns empty list without error."""
     monkeypatch.setattr(collector, "riot_get_safe", lambda url: [])
 
     result = collector.get_match_ids("test-puuid", count=100)
@@ -230,7 +221,6 @@ def test_get_match_ids_empty_response_on_first_call(
 
 
 def test_get_match_ids_count_truncation(monkeypatch: pytest.MonkeyPatch) -> None:
-    """count=150: each page returns 100 — result must be exactly 150, not 200."""
     call_count = 0
 
     def fake_riot_get_safe(url: str) -> list[str]:
@@ -248,7 +238,6 @@ def test_get_match_ids_count_truncation(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_get_match_ids_includes_start_time_in_url(monkeypatch: pytest.MonkeyPatch) -> None:
-    """start_time is appended to the URL as startTime query param."""
     captured_urls: list[str] = []
 
     def fake_riot_get_safe(url: str) -> list[str]:
@@ -264,7 +253,6 @@ def test_get_match_ids_includes_start_time_in_url(monkeypatch: pytest.MonkeyPatc
 
 
 def test_get_match_ids_no_time_params_url_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Without time params, URL contains neither startTime nor endTime."""
     captured_urls: list[str] = []
 
     def fake_riot_get_safe(url: str) -> list[str]:

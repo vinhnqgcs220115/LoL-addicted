@@ -2,9 +2,9 @@
 
 Personal DS portfolio project — analyzing ranked LoL performance via the official Riot Games API. Single-summoner scope, no real-time in-game interaction. End product: a live Streamlit dashboard deployed on Streamlit Cloud.
 
-## Target Architecture
+## Architecture
 
-Current and planned data flow moves in one direction. `collector.py` fetches from Riot and persists raw JSON to `data/raw/`. `processor.py` parses those files into DuckDB. `features.py` builds the feature matrix from DuckDB tables. `models.py` trains and serializes. `dashboard/app.py` will render only — importing from `src/` and holding no business logic. Notebooks are sandboxed exploration and are never imported by `src/`.
+Current data flow moves in one direction. `collector.py` fetches from Riot and persists raw JSON to `data/raw/`. `processor.py` parses those files into DuckDB. `features.py` builds the feature matrix from DuckDB tables. `models.py` trains and serializes. `dashboard/app.py` (planned) will render only — importing from `src/` and holding no business logic. Notebooks are sandboxed exploration and are never imported by `src/`.
 
 ## Module Contracts
 
@@ -16,11 +16,13 @@ Each module owns exactly one layer. Never reach across.
 | `processor.py` | Parse raw JSON, insert to DuckDB | Call external APIs |
 | `features.py` | Compute features from DuckDB tables | Read `data/raw/` directly |
 | `models.py` | Train, evaluate, save models | Build features or call APIs |
-| `dashboard/app.py` | Streamlit rendering | Contain business logic |
+| `dashboard/app.py` (planned) | Streamlit rendering | Contain business logic |
 
 ## Data Rules
 
 Files in `data/raw/` are write-once. Never modify after saving. DuckDB is the single source of truth for processed data. Schema is declared once in `processor.py::init_schema()`. All column names use `snake_case`; timestamps use ISO 8601 strings. Use explicit columns when reading persistent tables. `SELECT *` is acceptable only for controlled registered DataFrames whose schema is defined in code.
+
+Collection and processing retain all ranked roles. The current analytical product is mid-only: every Season 16 baseline, dashboard query, feature row, and cluster label must be scoped to `team_position = 'MIDDLE'`. `opp_*` fields currently represent the enemy mid laner. Expanding to all roles requires role-aware opponent extraction, direct tests, and a full DuckDB rebuild.
 
 `game_version` must be stored on every match row. Parse it from `match["info"]["gameVersion"]` in `processor.py` and keep the first two dot-separated segments. Riot API values use labels such as `"16.12.xxxxxxx"`; project discussions may call the same patch `26.12`. Store the API-derived `16.12` form and never hardcode a current patch.
 
@@ -44,6 +46,8 @@ Free dev key expires every 24h — must regenerate at `developer.riotgames.com`.
 - No Riot API calls outside `collector.py`
 - No writes to `data/raw/` after initial save
 - No logic inside `dashboard/app.py`
+- No hard-coded semantic meaning for numeric cluster IDs; derive feature means from `feature_matrix` joined to `cluster_labels`
+- No dashboard dependency on gitignored `models/*.pkl`; those artifacts are local training outputs only
 - Never commit `.env`, `data/raw/`, or local `*.duckdb` files; `data/lol_deploy.duckdb` is the only deployment exception
 
 ## Preferred Libraries
@@ -68,6 +72,8 @@ After every ingestion run, verify DuckDB before moving forward. The minimum chec
 - No NULL values in `win`, `match_id`, or `champion_name`
 - `MIN` and `MAX` of `game_datetime` fall within an expected range
 - `match_timelines` row count is roughly `matches count × average game duration in minutes`
+- Feature and cluster-label counts match the current Season 16 mid-lane population
+- A grouped `feature_matrix`/`cluster_labels` query returns exactly one row per cluster
 
 If all pass, mark the task done in `CONTEXT.md` and move on.
 
@@ -111,8 +117,8 @@ No end-to-end test against the real Riot API in CI — the free key expires ever
 
 **Adding new matches** — re-run `collector.py`. It skips files that already exist in `data/raw/`, so it is safe to run repeatedly.
 
-**Reprocessing from scratch** — delete `data/lol.duckdb`, then re-run `processor.py`. Raw files are untouched; no API calls needed.
+**Reprocessing from scratch** — run `.\scripts\workflow.ps1 rebuild`. It recreates `data/lol.duckdb` from raw files, then rebuilds features and models. Raw files are untouched; no API calls are made.
 
-**Adding a new field from the API** — verify the field exists in an actual raw JSON file before touching any code. Then add parsing in `processor.py`, update the schema in `init_schema()`, delete the DB, and reprocess. Never edit files in `data/raw/`.
+**Adding a new field from the API** — verify the field exists in an actual raw JSON file before touching any code. Then add parsing in `processor.py`, update the schema in `init_schema()`, and run the rebuild workflow. Never edit files in `data/raw/`.
 
-**Full reset** — delete `data/raw/`, `data/lol.duckdb`, and `models/`. Re-run `collector.py` then `processor.py` in sequence.
+**Deployment snapshot** — after tests and DuckDB verification pass, run `.\scripts\workflow.ps1 deploy-db`. The dashboard reads `data/lol_deploy.duckdb` read-only. Review public-data exposure before committing the snapshot.

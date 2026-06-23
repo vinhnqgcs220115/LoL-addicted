@@ -59,6 +59,12 @@ def test_extract_match_row_uses_expected_derived_fields(sample_match: dict[str, 
     assert row["cs_total"] == 221
     assert row["gold_earned"] == 10976
     assert row["vision_score"] == 13
+    assert row["opp_champion_name"] == "Leblanc"
+    assert row["opp_cs_total"] == 187
+    assert row["opp_gold_earned"] == 15729
+    assert row["opp_kills"] == 14
+    assert row["opp_deaths"] == 1
+    assert row["opp_assists"] == 4
     assert row["win"] is False
     assert row["game_duration_sec"] == 1522
     assert row["kda"] == pytest.approx((5 + 4) / 7)
@@ -231,10 +237,6 @@ def test_run_pipeline_raises_when_puuid_missing(
     with pytest.raises(ValueError, match="Missing PUUID"):
         processor.run_pipeline()
 
-
-# ---------------------------------------------------------------------------
-# extract_death_rows tests
-# ---------------------------------------------------------------------------
 
 def _make_minimal_match(match_id: str, puuid: str, participant_id: int) -> dict:
     return {
