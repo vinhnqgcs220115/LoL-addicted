@@ -188,6 +188,7 @@ with overview_tab:
     )
     patch_figure.update_xaxes(tickformat=".0%", range=[0, 1])
     patch_figure.update_yaxes(
+        type="category",
         categoryorder="array",
         categoryarray=patch_stats["game_version"].tolist(),
     )
