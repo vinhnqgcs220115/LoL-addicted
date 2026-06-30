@@ -41,12 +41,19 @@ st.set_page_config(
 
 
 @st.cache_resource
-def _get_connection() -> duckdb.DuckDBPyConnection:
+def _get_connection(db_cache_key: tuple[int, int]) -> duckdb.DuckDBPyConnection:
     return duckdb.connect(str(DB_PATH), read_only=True)
 
 
+def _db_cache_key() -> tuple[int, int]:
+    stat = DB_PATH.stat()
+    return stat.st_mtime_ns, stat.st_size
+
+
 @st.cache_data
-def _query_overview(_conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+def _query_overview(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
+) -> pd.DataFrame:
     return _conn.execute(
         """
         SELECT
@@ -62,7 +69,9 @@ def _query_overview(_conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
 
 
 @st.cache_data
-def _query_patch_stats(_conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+def _query_patch_stats(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
+) -> pd.DataFrame:
     return _conn.execute(
         """
         SELECT
@@ -81,7 +90,9 @@ def _query_patch_stats(_conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
 
 
 @st.cache_data
-def _query_time_stats(_conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+def _query_time_stats(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
+) -> pd.DataFrame:
     return _conn.execute("""
         SELECT
             time_bucket,
@@ -93,7 +104,9 @@ def _query_time_stats(_conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
 
 
 @st.cache_data
-def _query_throw_summary(_conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+def _query_throw_summary(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
+) -> pd.DataFrame:
     return _conn.execute("""
         SELECT
             COALESCE(SUM(is_throw::INTEGER), 0)::INTEGER AS throws,
@@ -104,27 +117,36 @@ def _query_throw_summary(_conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
 
 
 @st.cache_data
-def _query_matchups(_conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+def _query_matchups(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
+) -> pd.DataFrame:
     return champion_matchup_stats(_conn)
 
 
 @st.cache_data
-def _query_clusters(_conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+def _query_clusters(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
+) -> pd.DataFrame:
     return query_cluster_summary(_conn)
 
 
 @st.cache_data
-def _query_trajectories(_conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+def _query_trajectories(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
+) -> pd.DataFrame:
     return query_gold_trajectories(_conn)
 
 
 @st.cache_data
-def _query_deaths(_conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+def _query_deaths(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
+) -> pd.DataFrame:
     return death_context(_conn)
 
 
-conn = _get_connection()
-matchups = _query_matchups(conn)
+db_cache_key = _db_cache_key()
+conn = _get_connection(db_cache_key)
+matchups = _query_matchups(conn, db_cache_key)
 
 st.sidebar.title("LoL Ranked Analytics")
 st.sidebar.caption(
@@ -142,7 +164,7 @@ overview_tab, champions_tab, patterns_tab = st.tabs(
 
 with overview_tab:
     st.header("Overview")
-    overview = _query_overview(conn).iloc[0]
+    overview = _query_overview(conn, db_cache_key).iloc[0]
     total_games, win_rate, avg_kda, avg_cs = st.columns(4)
     total_games.metric("Total Games", f"{int(overview['total_games']):,}")
     win_rate.metric("Win Rate", f"{float(overview['win_rate']):.1%}")
@@ -150,7 +172,7 @@ with overview_tab:
     avg_cs.metric("Avg CS/min", f"{float(overview['avg_cs_per_min']):.1f}")
 
     st.subheader("Win Rate by Patch")
-    patch_stats = _query_patch_stats(conn)
+    patch_stats = _query_patch_stats(conn, db_cache_key)
     patch_figure = px.bar(
         patch_stats,
         x="win_rate",
@@ -172,7 +194,7 @@ with overview_tab:
     st.plotly_chart(patch_figure, use_container_width=True)
 
     st.subheader("Performance by Time of Day")
-    time_stats = _query_time_stats(conn)
+    time_stats = _query_time_stats(conn, db_cache_key)
     count_column, rate_column = st.columns(2)
     with count_column:
         count_figure = px.bar(
@@ -195,7 +217,7 @@ with overview_tab:
         st.plotly_chart(rate_figure, use_container_width=True)
 
     st.subheader("Throw and Comeback Summary")
-    throw_summary = _query_throw_summary(conn).iloc[0]
+    throw_summary = _query_throw_summary(conn, db_cache_key).iloc[0]
     throws = int(throw_summary["throws"])
     total = int(throw_summary["total"])
     throw_count, comeback_count, throw_rate = st.columns(3)
@@ -257,7 +279,7 @@ with champions_tab:
 
 with patterns_tab:
     st.header("Patterns")
-    cluster_summary = _query_clusters(conn)
+    cluster_summary = _query_clusters(conn, db_cache_key)
     cluster_summary["cluster_name"] = cluster_summary["cluster_id"].map(CLUSTER_NAMES)
 
     st.subheader("Cluster Distribution")
@@ -290,7 +312,7 @@ with patterns_tab:
     st.plotly_chart(heatmap, use_container_width=True)
 
     st.subheader("Average Gold Trajectory by Cluster")
-    trajectories = _query_trajectories(conn)
+    trajectories = _query_trajectories(conn, db_cache_key)
     trajectories["cluster_name"] = trajectories["cluster_id"].map(CLUSTER_NAMES)
     trajectory_figure = px.line(
         trajectories,
@@ -314,7 +336,7 @@ with patterns_tab:
         )
 
     st.subheader("Death Context Breakdown")
-    deaths = _query_deaths(conn)
+    deaths = _query_deaths(conn, db_cache_key)
     if deaths.empty:
         st.info("No death data available.")
     else:
