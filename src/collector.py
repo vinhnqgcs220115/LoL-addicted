@@ -65,12 +65,8 @@ def _save_raw(path: Path, payload: JsonPayload) -> None:
 
 
 def _resolve_account_identity() -> tuple[str, str]:
-    game_name = (
-        os.getenv("GAME_NAME", "").strip()
-        or os.getenv("RIOT_GAME_NAME", "").strip()
-        or os.getenv("SUMMONER_NAME", "").strip()
-    )
-    tag = os.getenv("TAG", "").strip() or os.getenv("RIOT_TAG", "").strip()
+    game_name = os.getenv("GAME_NAME", "").strip()
+    tag = os.getenv("TAG", "").strip()
 
     if "#" in game_name:
         parsed_name, parsed_tag = game_name.split("#", 1)
@@ -79,7 +75,7 @@ def _resolve_account_identity() -> tuple[str, str]:
 
     if not game_name or not tag:
         raise ValueError(
-            "Missing Riot ID. Set PUUID, or provide SUMMONER_NAME as game_name#tag, or set GAME_NAME and TAG in .env."
+            "Missing Riot ID. Set PUUID, or set GAME_NAME and TAG in .env."
         )
 
     return game_name, tag

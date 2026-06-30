@@ -21,34 +21,25 @@ class DummyResponse:
         self._payload = payload if payload is not None else {}
         self.headers = headers or {}
 
-    @property
-    def ok(self) -> bool:
-        return 200 <= self.status_code < 300
-
     def json(self) -> dict[str, Any] | list[Any]:
         return self._payload
 
     def raise_for_status(self) -> None:
-        if not self.ok:
+        if not (200 <= self.status_code < 300):
             raise requests.HTTPError(f"HTTP {self.status_code}")
 
 
-def test_resolve_account_identity_from_summoner_name(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_account_identity_from_game_name(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GAME_NAME", raising=False)
-    monkeypatch.delenv("RIOT_GAME_NAME", raising=False)
     monkeypatch.delenv("TAG", raising=False)
-    monkeypatch.delenv("RIOT_TAG", raising=False)
-    monkeypatch.setenv("SUMMONER_NAME", "Myishaa#2946S")
+    monkeypatch.setenv("GAME_NAME", "Myishaa#2946S")
 
     assert collector._resolve_account_identity() == ("Myishaa", "2946S")
 
 
 def test_resolve_account_identity_raises_without_riot_id(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GAME_NAME", raising=False)
-    monkeypatch.delenv("RIOT_GAME_NAME", raising=False)
-    monkeypatch.delenv("SUMMONER_NAME", raising=False)
     monkeypatch.delenv("TAG", raising=False)
-    monkeypatch.delenv("RIOT_TAG", raising=False)
 
     with pytest.raises(ValueError, match="Missing Riot ID"):
         collector._resolve_account_identity()

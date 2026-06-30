@@ -416,12 +416,8 @@ def build_feature_matrix(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
 
     tilt_df = tilt_index(conn)[["match_id", "tilt_index"]]
 
-    # Temporal features from matches table
-    matches_df = conn.execute("""
-        SELECT match_id, game_datetime
-        FROM matches
-        WHERE game_datetime >= ? AND team_position = ?
-    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
+    # Temporal features from the already-scoped base frame.
+    matches_df = base_df[["match_id", "game_datetime"]].copy()
     matches_df["game_datetime"] = pd.to_datetime(matches_df["game_datetime"], format="ISO8601")
     matches_df["hour_of_day"] = matches_df["game_datetime"].dt.hour
     matches_df["day_of_week"] = matches_df["game_datetime"].dt.dayofweek  # 0 = Monday
@@ -472,20 +468,15 @@ def build_feature_matrix(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     roam_df = roam_timing(conn)
     if not roam_df.empty:
         roam_agg = (
-            roam_df.groupby("match_id")
+            roam_df.assign(is_impact=roam_df["roam_result"] == "impact")
+            .groupby("match_id")
             .agg(
                 total_roams=("roam_start_min", "count"),
                 avg_cs_sacrifice=("cs_sacrifice", "mean"),
+                roam_impact_rate=("is_impact", "mean"),
             )
             .reset_index()
         )
-        impact_rate = (
-            roam_df.assign(is_impact=roam_df["roam_result"] == "impact")
-            .groupby("match_id")["is_impact"]
-            .mean()
-            .reset_index(name="roam_impact_rate")
-        )
-        roam_agg = roam_agg.merge(impact_rate, on="match_id", how="left")
     else:
         roam_agg = pd.DataFrame(
             columns=["match_id", "total_roams", "avg_cs_sacrifice", "roam_impact_rate"]

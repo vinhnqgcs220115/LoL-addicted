@@ -212,4 +212,8 @@ def build_deploy_db() -> dict[str, int]:
 
 
 if __name__ == "__main__":
-    build_deploy_db()
+    try:
+        build_deploy_db()
+    except Exception as exc:
+        print(exc, file=sys.stderr)
+        sys.exit(1)
