@@ -74,6 +74,15 @@ def test_riot_get_safe_raises_on_403(monkeypatch: pytest.MonkeyPatch) -> None:
         collector.riot_get_safe("https://example.test/resource")
 
 
+def test_riot_get_safe_raises_on_401(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RIOT_API_KEY", "test-key")
+    monkeypatch.setattr(collector.requests, "get", lambda *args, **kwargs: DummyResponse(401))
+    monkeypatch.setattr(collector.time, "sleep", lambda *_args: None)
+
+    with pytest.raises(PermissionError, match="401"):
+        collector.riot_get_safe("https://example.test/resource")
+
+
 def test_riot_get_safe_raises_not_found_on_404(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("RIOT_API_KEY", "test-key")
     monkeypatch.setattr(collector.requests, "get", lambda *args, **kwargs: DummyResponse(404))

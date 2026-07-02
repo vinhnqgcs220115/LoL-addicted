@@ -53,6 +53,8 @@ Commit `data/lol_deploy.duckdb`. The deploy step strips the `puuid` column and r
 
 ## Dashboard
 
+Dashboard pattern labels are heuristic. `Throw`, `Comeback`, death context, and roam-derived cluster features use single-player timeline proxies, not full team-state ground truth. See `GAME_MECHANICS.md` before interpreting those labels.
+
 - Local: `.\scripts\workflow.ps1 dashboard`
 - Deployed: [add after first Streamlit Cloud deployment]
 - Streamlit Cloud entry point: `dashboard/app.py`

@@ -1,6 +1,6 @@
 # Collaboration Guide
 
-This file defines how decisions, implementation, review, and handoffs work. Stable engineering rules belong in `CLAUDE.md`; current plans, metrics, and decisions belong in `CONTEXT.md`; implementation details belong in code and tests. Do not duplicate them here.
+This file defines how decisions, implementation, review, and handoffs work. Stable engineering rules belong in `CLAUDE.md`; current plans, metrics, and decisions belong in `CONTEXT.md`; chat-session handoffs belong in `SESSIONS.md`; implementation details belong in code and tests. Do not duplicate them here.
 
 ## Roles
 
@@ -13,18 +13,18 @@ Self-verification is required, but it is not final approval. The user or an inde
 ## Workflow
 
 1. User and reviewer agree on the problem, intended user action, constraints, and acceptance criteria.
-2. Reviewer checks the proposal against `CLAUDE.md`, `CONTEXT.md`, and relevant code before writing an implementation prompt.
+2. Reviewer checks the proposal against `CLAUDE.md`, `CONTEXT.md`, `SESSIONS.md`, and relevant code before writing an implementation prompt.
 3. Coding agent reads the named files, implements only the approved scope, and runs the required checks.
 4. Coding agent reports changed files, verification commands, exact results, and unresolved concerns.
 5. Reviewer compares the implementation with the acceptance criteria and returns numbered findings ordered by severity.
 6. Required fixes go back to the coding agent as a new scoped task.
-7. A phase closes only when acceptance criteria and relevant tests pass, production-like data is verified when applicable, and `CONTEXT.md` reflects the result.
+7. A phase closes only when acceptance criteria and relevant tests pass, production-like data is verified when applicable, `CONTEXT.md` reflects phase/status changes, and `SESSIONS.md` records the session handoff.
 
 Direct user-to-agent work is allowed. The same decision gates, verification, and review requirements still apply.
 
 ## Operating Rules
 
-- Read `CLAUDE.md`, `CONTEXT.md`, and the target files before proposing or implementing changes.
+- Read `CLAUDE.md`, `CONTEXT.md`, `SESSIONS.md`, and the target files before proposing or implementing changes.
 - Challenge weak assumptions before implementation, especially for user-facing features and fixed thresholds.
 - Do not silently make domain decisions. State the unresolved choice and what evidence is needed.
 - Keep tasks scoped. Do not combine broad audits and broad fixes in one agent prompt.
@@ -33,6 +33,7 @@ Direct user-to-agent work is allowed. The same decision gates, verification, and
 - Check changed function signatures for unused parameters and orphaned helpers.
 - Validate deployment constraints when deployment architecture is chosen, not at release time.
 - Update `CONTEXT.md` whenever phase status, measured data, or an architectural decision changes.
+- Update `SESSIONS.md` during long sessions, before context compaction when possible, and at session close with changed files, verification, generated-data effects, and open items.
 
 ## Recurring Failure Modes
 
@@ -45,14 +46,14 @@ Direct user-to-agent work is allowed. The same decision gates, verification, and
 | Domain choice filled silently | Stop and return the decision to the user. |
 | Tests pass but persisted data is stale | Run the relevant pipeline and inspect real DuckDB output. |
 | Feature lacks a concrete use | Define what the user does with the output before implementation. |
-| Session context is lost | Record non-obvious rationale in `CONTEXT.md` and produce a factual handoff. |
+| Session context is lost | Record non-obvious rationale in `SESSIONS.md`, update `CONTEXT.md` only if project status changed, and produce a factual handoff. |
 
 ## Prompt Patterns
 
 ### Implementation
 
 ```text
-Read CLAUDE.md, CONTEXT.md, and [target files] before changing anything.
+Read CLAUDE.md, CONTEXT.md, SESSIONS.md, and [target files] before changing anything.
 
 Goal: [observable outcome]
 Constraints: [boundaries and decisions already made]
@@ -95,7 +96,7 @@ Verify each finding independently; do not apply fixes yet.
 
 ```text
 Produce a factual handoff: files changed, behavior changed, verification results,
-current phase status, and open items. Update CONTEXT.md when its state changed.
+current phase status, and open items. Update SESSIONS.md every session; update CONTEXT.md when its state changed.
 ```
 
 ## Maintenance

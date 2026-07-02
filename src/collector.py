@@ -112,9 +112,10 @@ def riot_get_safe(url: str, max_retries: int = 3) -> JsonPayload:
             time.sleep(retry_after_seconds + 1)
             continue
 
-        if response.status_code == 403:
+        if response.status_code in {401, 403}:
             raise PermissionError(
-                "Riot API key was rejected (403). Regenerate it at developer.riotgames.com and update .env."
+                f"Riot API key was rejected ({response.status_code}). "
+                "Regenerate it at developer.riotgames.com and update .env."
             )
 
         if response.status_code == 404:
@@ -274,4 +275,7 @@ def run_collection(
 
 
 if __name__ == "__main__":
-    run_collection()
+    try:
+        run_collection()
+    except PermissionError as exc:
+        raise SystemExit(str(exc)) from None

@@ -4,7 +4,7 @@ Personal DS portfolio project — analyzing ranked LoL performance via the offic
 
 ## Architecture
 
-Current data flow moves in one direction. `collector.py` fetches from Riot and persists raw JSON to `data/raw/`. `processor.py` parses those files into DuckDB. `features.py` builds the feature matrix from DuckDB tables. `models.py` trains and serializes. `dashboard/app.py` (planned) will render only — importing from `src/` and holding no business logic. Notebooks are sandboxed exploration and are never imported by `src/`.
+Current data flow moves in one direction. `collector.py` fetches from Riot and persists raw JSON to `data/raw/`. `processor.py` parses those files into DuckDB. `features.py` builds the feature matrix from DuckDB tables. `models.py` trains and serializes. `dashboard/app.py` renders the dashboard — importing from `src/` and keeping feature/business logic out of the UI layer. Notebooks are sandboxed exploration and are never imported by `src/`.
 
 ## Module Contracts
 
@@ -16,7 +16,7 @@ Each module owns exactly one layer. Never reach across.
 | `processor.py` | Parse raw JSON, insert to DuckDB | Call external APIs |
 | `features.py` | Compute features from DuckDB tables | Read `data/raw/` directly |
 | `models.py` | Train, evaluate, save models | Build features or call APIs |
-| `dashboard/app.py` (planned) | Streamlit rendering | Contain business logic |
+| `dashboard/app.py` | Streamlit rendering | Contain feature/business logic |
 
 ## Data Rules
 
@@ -25,6 +25,8 @@ Files in `data/raw/` are write-once. Never modify after saving. DuckDB is the si
 Collection and processing retain all ranked roles. The current analytical product is mid-only: every Season 16 baseline, dashboard query, feature row, and cluster label must be scoped to `team_position = 'MIDDLE'`. `opp_*` fields currently represent the enemy mid laner. Expanding to all roles requires role-aware opponent extraction, direct tests, and a full DuckDB rebuild.
 
 `game_version` must be stored on every match row. Parse it from `match["info"]["gameVersion"]` in `processor.py` and keep the first two dot-separated segments. Riot API values use labels such as `"16.12.xxxxxxx"`; project discussions may call the same patch `26.12`. Store the API-derived `16.12` form and never hardcode a current patch.
+
+`GAME_MECHANICS.md` is authoritative for mid-lane domain mechanics. Read it before changing roam, death-context, throw/comeback, wave-state, or objective-timing features. Current dashboard labels such as Throw, Comeback, Overextension, Deficit Fight, Post-Laning Throw, and roam-derived cluster features are heuristic proxies from single-player timeline data unless the code explicitly parses full team/opponent state.
 
 ## Code Conventions
 
@@ -45,8 +47,9 @@ Free dev key expires every 24h — must regenerate at `developer.riotgames.com`.
 - No hardcoded API keys anywhere in `src/`
 - No Riot API calls outside `collector.py`
 - No writes to `data/raw/` after initial save
-- No logic inside `dashboard/app.py`
+- No feature/business logic inside `dashboard/app.py`; UI queries, caching, and rendering only
 - No hard-coded semantic meaning for numeric cluster IDs; derive feature means from `feature_matrix` joined to `cluster_labels`
+- No user-facing proxy label may be presented as gameplay ground truth; qualify it or rename it
 - No dashboard dependency on gitignored `models/*.pkl`; those artifacts are local training outputs only
 - Never commit `.env`, `data/raw/`, or local `*.duckdb` files; `data/lol_deploy.duckdb` is the only deployment exception
 
