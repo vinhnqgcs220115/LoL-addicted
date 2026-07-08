@@ -101,6 +101,7 @@ def riot_get_safe(url: str, max_retries: int = 3) -> JsonPayload:
         except requests.RequestException:
             if attempt == max_retries:
                 raise
+            # Connection failures get one explicit retry backoff before the next paced request.
             time.sleep(REQUEST_DELAY_SECONDS)
             continue
 

@@ -34,6 +34,7 @@ Direct user-to-agent work is allowed. The same decision gates, verification, and
 - Validate deployment constraints when deployment architecture is chosen, not at release time.
 - Update `CONTEXT.md` whenever phase status, measured data, or an architectural decision changes.
 - Update `SESSIONS.md` during long sessions, before context compaction when possible, and at session close with changed files, verification, generated-data effects, and open items.
+- For any task sent to more than one concurrently-active coding-agent session, or any task marked read-only/investigation-only: suppress session-side `SESSIONS.md` writes. The reviewer or user performs one consolidated write after collecting each session's chat-only handoff.
 
 ## Recurring Failure Modes
 
@@ -47,6 +48,7 @@ Direct user-to-agent work is allowed. The same decision gates, verification, and
 | Tests pass but persisted data is stale | Run the relevant pipeline and inspect real DuckDB output. |
 | Feature lacks a concrete use | Define what the user does with the output before implementation. |
 | Session context is lost | Record non-obvious rationale in `SESSIONS.md`, update `CONTEXT.md` only if project status changed, and produce a factual handoff. |
+| Concurrent or investigation-only sessions write unauthorized or conflicting `SESSIONS.md` entries | Suppress session-side writes for parallel/investigation tasks; reviewer performs one consolidated write. |
 
 ## Prompt Patterns
 
@@ -97,6 +99,15 @@ Verify each finding independently; do not apply fixes yet.
 ```text
 Produce a factual handoff: files changed, behavior changed, verification results,
 current phase status, and open items. Update SESSIONS.md every session; update CONTEXT.md when its state changed.
+```
+
+### Session Close (Parallel or Investigation-Only)
+
+```text
+  Produce a factual handoff: files changed, behavior changed, verification results,
+  current phase status, and open items. Do not update SESSIONS.md — report the
+  handoff in this chat only. The reviewer or user applies one consolidated entry
+  after collecting handoffs from every session in this batch.
 ```
 
 ## Maintenance

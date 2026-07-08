@@ -152,6 +152,51 @@ def test_roam_timing_detects_two_minute_mid_roam() -> None:
     assert roam["roam_end_min"] == 6
 
 
+def test_roam_timing_uses_cs_drop_when_position_missing() -> None:
+    conn = _make_conn()
+    conn.execute("""
+        INSERT INTO matches VALUES (
+            'S16_E', 'puuid1', ?, '16.1', 420,
+            1800, 1, 'Zed', 100, 'MIDDLE', 'MID', true,
+            5, 2, 3, 4.0, 180, 6.0, 12000, 20000, 30,
+            'Viktor', 160, 11000, 2, 3, 1
+        )
+    """, [S16_DATETIME_D])
+    for minute in range(21):
+        conn.execute("""
+            INSERT INTO match_timelines VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, [
+            "S16_E",
+            minute,
+            500 + minute * 250,
+            minute * 8,
+            minute * 100,
+            0,
+            7500 + minute * 10,
+            7500 + minute * 10,
+        ])
+    conn.execute("""
+        UPDATE match_timelines
+        SET position_x = NULL, position_y = NULL
+        WHERE match_id = 'S16_A'
+    """)
+    conn.execute("""
+        UPDATE match_timelines
+        SET cs = 0
+        WHERE match_id = 'S16_A' AND timestamp_min IN (5, 6)
+    """)
+
+    result = roam_timing(conn)
+    conn.close()
+
+    roams = result[result["match_id"] == "S16_A"]
+    assert len(roams) == 1
+    roam = roams.iloc[0]
+    assert roam["roam_start_min"] == 5
+    assert roam["roam_end_min"] == 6
+    assert roam["roam_result"] == "no_impact"
+
+
 def test_build_feature_matrix_has_pass_through_columns() -> None:
     conn = _make_conn()
     fm = build_feature_matrix(conn)

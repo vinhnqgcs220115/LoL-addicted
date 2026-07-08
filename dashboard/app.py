@@ -23,12 +23,11 @@ from src.models import (  # noqa: E402
 )
 
 CLUSTER_NAMES: dict[int, str] = {
-    0: "Cluster 0",
-    1: "Cluster 1",
-    2: "Cluster 2",
-    3: "Cluster 3",
+    0: "Behind & Spiraling",
+    1: "Ahead but Overextending",
+    2: "Clean Games",
+    3: "Cluster 3 (insufficient data)",
 }
-# TODO: assign names after reviewing notebooks/02_clustering.ipynb
 
 DB_PATH = BASE_DIR / "data" / "lol_deploy.duckdb"
 TIME_BUCKET_ORDER = ["morning", "afternoon", "evening", "night"]
@@ -38,10 +37,14 @@ PROXY_LABEL_NOTE = (
 )
 FEATURE_DISPLAY_NAMES = {
     "gold_delta": "Gold delta vs personal baseline",
+    "total_deaths": "Total deaths",
     "deaths_while_ahead": "Deaths while ahead (proxy)",
+    "tilt_spiral_ratio": "Close-repeat death share (proxy)",
+    "max_death_streak": "Max close-repeat death streak (proxy)",
     "total_roams": "Detected roams (proxy)",
     "avg_cs_sacrifice": "Avg CS sacrifice (roam proxy)",
     "roam_impact_rate": "Kill impact rate (roam proxy)",
+    "tilt_index": "Recent win rate (tilt proxy)",
 }
 
 st.set_page_config(

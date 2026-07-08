@@ -1,7 +1,7 @@
 # Project Context
 
 **Phase:** 4 complete
-**Last updated:** 2026-07-05
+**Last updated:** 2026-07-08
 
 ---
 
@@ -49,7 +49,7 @@ Death attribution    : reported=4,320, stored=4,320, mismatched matches=0
 Timelines collected  : 542 (16,080 timeline rows)
 Feature matrix       : 354 rows, 19 columns, 0 NULL — Season 16 mid only
 Clustering           : trained — 354 labels, silhouette 0.243, cluster sizes 175 / 60 / 112 / 7
-Tests                : 52 passed; Ruff clean
+Tests                : 55 passed
 Deployment snapshot  : 354 sanitized matches; 0 original Riot match IDs
 Dashboard            : 3 tabs implemented; public Streamlit app verified
 Gameplay proxy caveat: dashboard labels are qualified in UI; underlying throw/comeback, death-context, and roam-derived metrics remain heuristic proxies
@@ -65,6 +65,7 @@ Live URL             : https://myishaa.streamlit.app/
 | DuckDB over SQLite | Window functions and analytical queries without a server |
 | K-Means over XGBoost for modeling | Win predictor removed; clustering behavioral aggregates does not benefit from gradient boosting |
 | Cluster names remain a user decision | Names must follow centroid and trajectory review; pre-naming would imply unsupported behavior |
+| Clusters 0/1/2 named from centroid review; cluster 3 (n=7) left unnamed | Cluster 3's sample size still too small to support a name; the other three had clear, distinct centroid signals. |
 | Plotly over Matplotlib | Interactive charts required in Streamlit |
 | `requests` over `httpx` | Sync is sufficient at this data scale; simpler API |
 | Ranked Solo/Duo only (queue=420) | Cleaner signal; removes ARAM and normal queue noise |
@@ -80,7 +81,7 @@ Live URL             : https://myishaa.streamlit.app/
 | tilt_index scoped to S16 mid only | Consistent with ANALYSIS_ROLE filter; loses S15 rolling context for first S16 games, accepted at this data scale |
 | game_datetime retained in deploy DB | Timestamps plus champion/version could identify matches on public sites; accepted risk for a portfolio project |
 | Gameplay labels stay heuristic until full state is parsed | Current throw/comeback, death-context, and roam-impact labels use personal timeline proxies; `GAME_MECHANICS.md` owns the domain caveats |
-| README screenshots skipped for Phase 4 close | Screenshots are optional polish; the deployed app URL and dashboard are sufficient for current progress |
+| README screenshots added | Three dashboard screenshots exist under `docs/screenshots/` and are referenced from `README.md`. |
 
 ### Deployment notes (Phase 4)
 
@@ -97,7 +98,7 @@ Before a public deployment commit, review residual re-identification risk in the
 ## Phase 4 Decisions
 
 - `is_early_death` appears in the Patterns death-context breakdown.
-- Review current per-cluster means before assigning user-facing names. Until then, display numeric cluster IDs and measured values only.
+- Clusters 0/1/2 have user-facing names from centroid review; cluster 3 remains numeric because n=7 is too small to support a name.
 - Dashboard shows cluster sample sizes; cluster 3 currently has only 7 games and must not support strong conclusions.
 - Keep the Champions tab mid-only. All-role support requires role-aware opponent extraction and a full rebuild.
 
@@ -109,6 +110,6 @@ Before a public deployment commit, review residual re-identification risk in the
 
 ## Notes
 
-- Vietnam routing: `asia` for account-v1, `vn1` for summoner/league, `sea` for match-v5
+- Vietnam routing: `asia` for account-v1, `sea` for match-v5
 - Free API key expires every 24h — regenerate at `developer.riotgames.com`
-- Summoner identity is `GameName#TAG` (e.g. `PlayerName#VN1`); PUUID is fetched once and stored in `.env`
+- Summoner identity is `GameName#TAG`; PUUID is fetched once and stored in `.env`

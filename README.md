@@ -59,3 +59,9 @@ Dashboard pattern labels are heuristic. `Throw`, `Comeback`, death context, and 
 - Deployed: https://myishaa.streamlit.app/
 - Streamlit Cloud entry point: `dashboard/app.py`
 - Python version: 3.11
+
+![Overview tab](docs/screenshots/dashboard-overview.png)
+
+![Champions tab](docs/screenshots/dashboard-champions.png)
+
+![Patterns tab](docs/screenshots/dashboard-patterns.png)

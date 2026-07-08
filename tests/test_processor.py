@@ -23,6 +23,24 @@ def test_init_schema_creates_all_tables() -> None:
     assert "match_deaths" in tables
 
 
+def test_init_schema_raises_when_existing_table_columns_do_not_match() -> None:
+    conn = duckdb.connect(":memory:")
+    columns = [column for column in processor.MATCH_COLUMNS if column != "opp_assists"]
+    column_sql = ", ".join(f"{column} VARCHAR" for column in columns)
+
+    try:
+        conn.execute(f"CREATE TABLE matches ({column_sql})")
+        with pytest.raises(processor.SchemaMismatchError) as excinfo:
+            processor.init_schema(conn)
+    finally:
+        conn.close()
+
+    message = str(excinfo.value)
+    assert "table matches" in message
+    assert "missing columns: opp_assists" in message
+    assert "unexpected columns: none" in message
+
+
 def test_get_participant_and_id(sample_match: dict[str, object]) -> None:
     participant = processor.get_participant(sample_match, SAMPLE_PUUID)
 

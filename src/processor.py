@@ -65,6 +65,10 @@ DEATH_COLUMNS = (
 )
 
 
+class SchemaMismatchError(RuntimeError):
+    """Raised when an existing DuckDB table does not match declared columns."""
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
@@ -84,6 +88,31 @@ def _parse_game_version(raw_game_version: str) -> str:
     if len(version_parts) < 2:
         return raw_game_version
     return ".".join(version_parts[:2])
+
+
+def _assert_table_columns(
+    conn: duckdb.DuckDBPyConnection,
+    table_name: str,
+    expected_columns: tuple[str, ...],
+) -> None:
+    actual_columns = {
+        row[0]
+        for row in conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = ?",
+            [table_name],
+        ).fetchall()
+    }
+    expected_column_set = set(expected_columns)
+    missing = sorted(expected_column_set - actual_columns)
+    unexpected = sorted(actual_columns - expected_column_set)
+
+    if missing or unexpected:
+        missing_text = ", ".join(missing) or "none"
+        unexpected_text = ", ".join(unexpected) or "none"
+        raise SchemaMismatchError(
+            f"Schema mismatch for table {table_name}: "
+            f"missing columns: {missing_text}; unexpected columns: {unexpected_text}"
+        )
 
 
 def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
@@ -122,6 +151,7 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
         )
         """
     )
+    _assert_table_columns(conn, "matches", MATCH_COLUMNS)
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS match_timelines (
@@ -137,6 +167,7 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
         )
         """
     )
+    _assert_table_columns(conn, "match_timelines", TIMELINE_COLUMNS)
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS match_deaths (
@@ -150,6 +181,7 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
         )
         """
     )
+    _assert_table_columns(conn, "match_deaths", DEATH_COLUMNS)
 
 
 def get_participant(raw_match: dict[str, Any], puuid: str) -> dict[str, Any]:

@@ -272,6 +272,7 @@ def test_riot_get_safe_retries_on_connection_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     call_count = 0
+    sleep_calls: list[float] = []
 
     def fake_get(*args: Any, **kwargs: Any) -> DummyResponse:
         nonlocal call_count
@@ -282,11 +283,12 @@ def test_riot_get_safe_retries_on_connection_error(
 
     monkeypatch.setenv("RIOT_API_KEY", "test-key")
     monkeypatch.setattr(collector.requests, "get", fake_get)
-    monkeypatch.setattr(collector.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(collector.time, "sleep", sleep_calls.append)
 
     result = collector.riot_get_safe("https://example.test/resource")
     assert result == {"ok": True}
     assert call_count == 2
+    assert sleep_calls == [1.3, 1.3, 1.3]
 
 
 def test_riot_get_safe_raises_after_all_retries_on_connection_error(

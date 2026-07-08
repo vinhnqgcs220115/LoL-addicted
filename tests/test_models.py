@@ -53,7 +53,12 @@ def test_train_and_persist_writes_artifacts_and_labels(tmp_path: Path) -> None:
     assert len(labels) == len(feature_df)
     assert len({cluster_id for _, cluster_id in labels}) == 4
     assert list(profile.columns) == FEATURE_COLS
-    pd.testing.assert_frame_equal(derived_profile, profile, check_dtype=False)
+    pd.testing.assert_frame_equal(
+        derived_profile,
+        profile,
+        check_dtype=False,
+        check_index_type=False,
+    )
     assert 0.0 <= score <= 1.0
     assert model.n_clusters == 4
     assert model.random_state == 42

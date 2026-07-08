@@ -46,4 +46,4 @@ Use focused commits with short imperative subjects such as `fix: scope matchups 
 
 Never commit `.env`, Riot keys, `data/raw/`, or local `*.duckdb`; `data/lol_deploy.duckdb` is the only exception. Review that deployment database before publishing because timestamps plus champion/version data can still be identifying even after match IDs are replaced with surrogates. The dashboard must open it read-only.
 
-Preserve Riot routing: Account-v1 uses `asia.api.riotgames.com`, Summoner-v4/League-v4 uses `vn1.api.riotgames.com`, and Match-v5 uses `sea.api.riotgames.com`.
+Preserve Riot routing: Account-v1 uses `asia.api.riotgames.com`, and Match-v5 uses `sea.api.riotgames.com`.

@@ -34,10 +34,9 @@ Type hints on all functions. Module-level constants in `UPPER_SNAKE_CASE`. All s
 
 ## Riot API Routing
 
-Vietnam server uses split routing across three hosts — getting this wrong causes silent 404s:
+Vietnam server uses split routing across two hosts — getting this wrong causes silent 404s:
 
 - Account-v1 (PUUID lookup): `asia.api.riotgames.com`
-- Summoner-v4, League-v4: `vn1.api.riotgames.com`
 - Match-v5: `sea.api.riotgames.com`
 
 Free dev key expires every 24h — must regenerate at `developer.riotgames.com`. Rate limit: 20 req/s and 100 req/2min. Guard all calls with `time.sleep(1.3)`. On HTTP 429, wait `Retry-After + 1` seconds before retry.
@@ -95,7 +94,7 @@ Common failure patterns:
 | Symptom | Likely cause |
 |---|---|
 | HTTP 401 or 403 | API key rejected or expired — regenerate at `developer.riotgames.com` |
-| HTTP 404 on match-v5 | Wrong routing host — must be `sea.api.riotgames.com`, not `vn1` |
+| HTTP 404 on match-v5 | Wrong routing host — must be `sea.api.riotgames.com` |
 | Empty match ID list | Wrong PUUID, or no ranked games in the requested time window |
 | NULL values in feature matrix | Field missing from raw JSON, or timeline lacks that exact minute |
 | Streamlit shows stale data | `@st.cache_data` is holding old results — call `.clear()` or restart the server |

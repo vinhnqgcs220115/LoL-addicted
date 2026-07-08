@@ -21,6 +21,52 @@ sys.path.insert(0, str(BASE_DIR))
 from src.features import ANALYSIS_ROLE, CURRENT_SEASON_START  # noqa: E402
 
 
+# Keep in sync with src.features.build_feature_matrix().
+FEATURE_MATRIX_COLUMNS = (
+    "match_id",
+    "win",
+    "game_datetime",
+    "champion_name",
+    "tilt_index",
+    "hour_of_day",
+    "day_of_week",
+    "is_weekend",
+    "time_bucket",
+    "is_throw",
+    "is_comeback",
+    "gold_delta",
+    "total_deaths",
+    "deaths_while_ahead",
+    "tilt_spiral_ratio",
+    "max_death_streak",
+    "total_roams",
+    "avg_cs_sacrifice",
+    "roam_impact_rate",
+)
+
+
+def _quote_identifier(identifier: str) -> str:
+    return f'"{identifier.replace(chr(34), chr(34) * 2)}"'
+
+
+def _assert_feature_matrix_columns(conn: duckdb.DuckDBPyConnection) -> None:
+    actual_columns = {
+        row[0]
+        for row in conn.execute("DESCRIBE source.feature_matrix").fetchall()
+    }
+    expected_columns = set(FEATURE_MATRIX_COLUMNS)
+    missing = sorted(expected_columns - actual_columns)
+    unexpected = sorted(actual_columns - expected_columns)
+
+    if missing or unexpected:
+        missing_text = ", ".join(missing) or "none"
+        unexpected_text = ", ".join(unexpected) or "none"
+        raise ValueError(
+            "Schema mismatch for source.feature_matrix: "
+            f"missing columns: {missing_text}; unexpected columns: {unexpected_text}"
+        )
+
+
 def build_deploy_db() -> dict[str, int]:
     """Rebuild the sanitized, analysis-scoped deployment database."""
     if not SOURCE_DB.exists():
@@ -173,13 +219,25 @@ def build_deploy_db() -> dict[str, int]:
                 JOIN id_map ids ON ids.original_match_id = d.match_id
             """)
 
+            _assert_feature_matrix_columns(conn)
+            feature_column_sql = ", ".join(
+                _quote_identifier(column) for column in FEATURE_MATRIX_COLUMNS
+            )
+            feature_select_sql = ",\n                    ".join(
+                "ids.surrogate_match_id"
+                if column == "match_id"
+                else f"f.{_quote_identifier(column)}"
+                for column in FEATURE_MATRIX_COLUMNS
+            )
+
             conn.execute(
                 "CREATE TABLE feature_matrix AS "
-                "SELECT * FROM source.feature_matrix WHERE FALSE"
+                f"SELECT {feature_column_sql} FROM source.feature_matrix WHERE FALSE"
             )
-            conn.execute("""
-                INSERT INTO feature_matrix
-                SELECT ids.surrogate_match_id, f.* EXCLUDE (match_id)
+            conn.execute(f"""
+                INSERT INTO feature_matrix ({feature_column_sql})
+                SELECT
+                    {feature_select_sql}
                 FROM source.feature_matrix f
                 JOIN id_map ids ON ids.original_match_id = f.match_id
             """)
