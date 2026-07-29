@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import warnings
 from pathlib import Path
 
 import duckdb
@@ -7,8 +9,11 @@ import joblib
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
 
 from src.models import (
+    CENTROID_SNAPSHOT_FILE,
     FEATURE_COLS,
     fit_clusters,
     query_cluster_summary,
@@ -28,6 +33,25 @@ def _feature_frame() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _fit_clusters_with_swapped_ids(
+    feature_df: pd.DataFrame,
+) -> tuple[KMeans, StandardScaler, np.ndarray, float]:
+    model, scaler, labels, score = fit_clusters(feature_df)
+    permutation = np.array([1, 0, 2, 3])
+    return model, scaler, permutation[labels], score
+
+
+def _create_centroid_snapshot_candidate(
+    conn: duckdb.DuckDBPyConnection,
+    models_dir: Path,
+) -> None:
+    with pytest.raises(RuntimeError, match="No named centroid snapshot existed"):
+        train_and_persist(conn, models_dir)
+    assert (models_dir / CENTROID_SNAPSHOT_FILE).is_file()
+    assert not (models_dir / "kmeans.pkl").exists()
+    assert not (models_dir / "scaler.pkl").exists()
+
+
 def test_train_and_persist_writes_artifacts_and_labels(tmp_path: Path) -> None:
     conn = duckdb.connect(":memory:")
     feature_df = _feature_frame()
@@ -35,6 +59,7 @@ def test_train_and_persist_writes_artifacts_and_labels(tmp_path: Path) -> None:
     conn.execute("CREATE TABLE feature_matrix AS SELECT * FROM _feature_fixture")
     conn.unregister("_feature_fixture")
 
+    _create_centroid_snapshot_candidate(conn, tmp_path)
     profile, score = train_and_persist(conn, tmp_path)
 
     labels = conn.execute(
@@ -64,6 +89,12 @@ def test_train_and_persist_writes_artifacts_and_labels(tmp_path: Path) -> None:
     assert model.random_state == 42
     assert model.n_init == 20
     assert scaler.n_features_in_ == len(FEATURE_COLS)
+    snapshot = json.loads(
+        (tmp_path / CENTROID_SNAPSHOT_FILE).read_text(encoding="utf-8")
+    )
+    assert snapshot["feature_cols"] == FEATURE_COLS
+    assert set(snapshot["feature_scales"]) == set(FEATURE_COLS)
+    assert set(snapshot["centroids"]) == {"0", "1", "2", "3"}
     conn.close()
 
 
@@ -81,8 +112,61 @@ def _populated_connection(tmp_path: Path) -> tuple[duckdb.DuckDBPyConnection, pd
     conn.register("_feature_fixture", feature_df)
     conn.execute("CREATE TABLE feature_matrix AS SELECT * FROM _feature_fixture")
     conn.unregister("_feature_fixture")
+    _create_centroid_snapshot_candidate(conn, tmp_path)
     train_and_persist(conn, tmp_path)
     return conn, feature_df
+
+
+def test_unchanged_retrain_produces_no_binding_warning(tmp_path: Path) -> None:
+    conn, _feature_df = _populated_connection(tmp_path)
+    snapshot_path = tmp_path / CENTROID_SNAPSHOT_FILE
+    original_snapshot = snapshot_path.read_bytes()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        train_and_persist(conn, tmp_path)
+
+    assert caught == []
+    assert snapshot_path.read_bytes() == original_snapshot
+    conn.close()
+
+
+def test_shuffled_centroids_warn_and_refuse_stale_names(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn, _feature_df = _populated_connection(tmp_path)
+    original_labels = conn.execute(
+        "SELECT match_id, cluster_id FROM cluster_labels ORDER BY match_id"
+    ).fetchall()
+    snapshot_path = tmp_path / CENTROID_SNAPSHOT_FILE
+    original_snapshot = snapshot_path.read_bytes()
+    original_model = (tmp_path / "kmeans.pkl").read_bytes()
+    original_scaler = (tmp_path / "scaler.pkl").read_bytes()
+    monkeypatch.setattr(
+        "src.models.fit_clusters",
+        _fit_clusters_with_swapped_ids,
+    )
+
+    with pytest.warns(RuntimeWarning) as caught:
+        with pytest.raises(RuntimeError, match="Refusing to persist models or labels"):
+            train_and_persist(conn, tmp_path)
+
+    message = str(caught[0].message)
+    assert "cluster_id 0 is closest to named cluster_id 1" in message
+    assert "cluster_id 1 is closest to named cluster_id 0" in message
+    assert "standardized distance" in message
+    assert "margin" in message
+    assert (
+        conn.execute(
+            "SELECT match_id, cluster_id FROM cluster_labels ORDER BY match_id"
+        ).fetchall()
+        == original_labels
+    )
+    assert snapshot_path.read_bytes() == original_snapshot
+    assert (tmp_path / "kmeans.pkl").read_bytes() == original_model
+    assert (tmp_path / "scaler.pkl").read_bytes() == original_scaler
+    conn.close()
 
 
 def test_query_cluster_summary_returns_complete_feature_means(tmp_path: Path) -> None:
