@@ -64,6 +64,14 @@ DEATH_COLUMNS = (
     "cs_at_death",
 )
 
+ROAM_WINDOW_COLUMNS = (
+    "match_id",
+    "roam_start_min",
+    "roam_end_min",
+    "kills_during_roam",
+    "roam_result",
+)
+
 
 class SchemaMismatchError(RuntimeError):
     """Raised when an existing DuckDB table does not match declared columns."""
@@ -116,7 +124,7 @@ def _assert_table_columns(
 
 
 def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create the DuckDB schema for match-level and per-minute timeline data."""
+    """Create the DuckDB schema for processed and derived match data."""
 
     conn.execute(
         """
@@ -182,6 +190,19 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
         """
     )
     _assert_table_columns(conn, "match_deaths", DEATH_COLUMNS)
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS roam_windows (
+            match_id VARCHAR NOT NULL,
+            roam_start_min INTEGER NOT NULL,
+            roam_end_min INTEGER NOT NULL,
+            kills_during_roam INTEGER NOT NULL,
+            roam_result VARCHAR NOT NULL,
+            PRIMARY KEY (match_id, roam_start_min, roam_end_min)
+        )
+        """
+    )
+    _assert_table_columns(conn, "roam_windows", ROAM_WINDOW_COLUMNS)
 
 
 def get_participant(raw_match: dict[str, Any], puuid: str) -> dict[str, Any]:

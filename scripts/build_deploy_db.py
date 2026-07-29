@@ -12,6 +12,7 @@ TABLES = (
     "matches",
     "match_timelines",
     "match_deaths",
+    "roam_windows",
     "feature_matrix",
     "cluster_labels",
 )
@@ -217,6 +218,34 @@ def build_deploy_db() -> dict[str, int]:
                     d.cs_at_death
                 FROM source.match_deaths d
                 JOIN id_map ids ON ids.original_match_id = d.match_id
+            """)
+
+            conn.execute("""
+                CREATE TABLE roam_windows (
+                    match_id VARCHAR NOT NULL,
+                    roam_start_min INTEGER NOT NULL,
+                    roam_end_min INTEGER NOT NULL,
+                    kills_during_roam INTEGER NOT NULL,
+                    roam_result VARCHAR NOT NULL,
+                    PRIMARY KEY (match_id, roam_start_min, roam_end_min)
+                )
+            """)
+            conn.execute("""
+                INSERT INTO roam_windows (
+                    match_id,
+                    roam_start_min,
+                    roam_end_min,
+                    kills_during_roam,
+                    roam_result
+                )
+                SELECT
+                    ids.surrogate_match_id,
+                    r.roam_start_min,
+                    r.roam_end_min,
+                    r.kills_during_roam,
+                    r.roam_result
+                FROM source.roam_windows r
+                JOIN id_map ids ON ids.original_match_id = r.match_id
             """)
 
             _assert_feature_matrix_columns(conn)

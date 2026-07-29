@@ -69,6 +69,16 @@ def _create_source_db(path: Path, feature_columns: tuple[str, ...]) -> None:
                 cs_at_death INTEGER
             )
         """)
+        conn.execute("""
+            CREATE TABLE roam_windows (
+                match_id VARCHAR,
+                roam_start_min INTEGER,
+                roam_end_min INTEGER,
+                kills_during_roam INTEGER,
+                roam_result VARCHAR
+            )
+        """)
+        conn.execute("INSERT INTO roam_windows VALUES ('MATCH_1', 5, 6, 1, 'impact')")
         column_sql = ", ".join(f'"{column}" VARCHAR' for column in feature_columns)
         value_sql = ", ".join("?" for _ in feature_columns)
         conn.execute(f"CREATE TABLE feature_matrix ({column_sql})")
@@ -83,6 +93,28 @@ def _create_source_db(path: Path, feature_columns: tuple[str, ...]) -> None:
             )
         """)
         conn.execute("INSERT INTO cluster_labels VALUES ('MATCH_1', 0)")
+
+
+def test_build_deploy_db_copies_roam_windows_with_surrogate_ids(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source_db = tmp_path / "source.duckdb"
+    deploy_db = tmp_path / "deploy.duckdb"
+    _create_source_db(source_db, build_deploy_db.FEATURE_MATRIX_COLUMNS)
+
+    monkeypatch.setattr(build_deploy_db, "SOURCE_DB", source_db)
+    monkeypatch.setattr(build_deploy_db, "DEPLOY_DB", deploy_db)
+
+    counts = build_deploy_db.build_deploy_db()
+    with duckdb.connect(str(deploy_db), read_only=True) as conn:
+        rows = conn.execute("""
+            SELECT match_id, roam_start_min, roam_end_min, kills_during_roam, roam_result
+            FROM roam_windows
+        """).fetchall()
+
+    assert counts["roam_windows"] == 1
+    assert rows == [("GAME_0001", 5, 6, 1, "impact")]
 
 
 def test_build_deploy_db_rejects_unexpected_feature_matrix_columns(
