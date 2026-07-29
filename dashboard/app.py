@@ -1,3 +1,5 @@
+import base64
+import html
 import sys
 from pathlib import Path
 
@@ -28,8 +30,35 @@ CLUSTER_NAMES: dict[int, str] = {
     2: "Clean Games",
     3: "Cluster 3 (insufficient data)",
 }
+CLUSTER_DESCRIPTIONS: dict[str, str] = {
+    "Behind & Spiraling": "falling behind early and struggling to recover",
+    "Ahead but Overextending": (
+        "building a lead, then taking risks that put it back in play"
+    ),
+    "Clean Games": "efficient, with few compounding mistakes",
+}
+CLUSTER_CARD_STATS: dict[str, tuple[tuple[str, str, bool], ...]] = {
+    "Behind & Spiraling": (
+        ("gold_delta", "Gold delta vs personal baseline", True),
+        ("tilt_spiral_ratio", "Repeat-death streak", True),
+    ),
+    "Ahead but Overextending": (
+        ("gold_delta", "Gold delta vs personal baseline", True),
+        ("deaths_while_ahead", "Deaths while ahead", True),
+    ),
+    "Clean Games": (
+        ("total_deaths", "Total deaths", False),
+        ("tilt_spiral_ratio", "Repeat-death streak", True),
+    ),
+}
 
 DB_PATH = BASE_DIR / "data" / "lol_deploy.duckdb"
+CHAMPION_ICON_DIR = BASE_DIR / "assets" / "champion_icons"
+CHAMPION_ICONS = {
+    path.stem: path for path in CHAMPION_ICON_DIR.glob("*.png") if path.is_file()
+}
+WIN_RATE_CLEAR_MAJORITY = 0.55
+WIN_RATE_CLEAR_MINORITY = 0.45
 TIME_BUCKET_ORDER = ["morning", "afternoon", "evening", "night"]
 PROXY_LABEL_NOTE = (
     "Proxy labels use single-player timeline data; they are not confirmed "
@@ -46,12 +75,219 @@ FEATURE_DISPLAY_NAMES = {
     "roam_impact_rate": "Kill impact rate (roam proxy)",
     "tilt_index": "Recent win rate (tilt proxy)",
 }
+MATCHUP_TABLE_CSS = """
+.matchup-table-wrap {
+    max-height: 420px;
+    overflow: auto;
+    border: 1px solid rgba(128, 128, 128, 0.25);
+    border-radius: 0.5rem;
+}
+.matchup-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.matchup-table th,
+.matchup-table td {
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.matchup-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--background-color, white);
+    text-align: left;
+}
+.matchup-table th:nth-child(n+3),
+.matchup-table td:nth-child(n+3) {
+    text-align: right;
+}
+.matchup-champion {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.matchup-champion img {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+}
+.matchup-win-rate {
+    display: inline-block;
+    min-width: 4.25rem;
+    padding: 0.15rem 0.45rem;
+    border: 1px solid;
+    border-radius: 999px;
+    text-align: center;
+    font-weight: 600;
+}
+.matchup-win-rate-majority {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: rgba(34, 197, 94, 0.6);
+}
+.matchup-win-rate-minority {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.6);
+}
+.matchup-win-rate-neutral {
+    background: rgba(107, 114, 128, 0.2);
+    border-color: rgba(107, 114, 128, 0.6);
+}
+"""
+CLUSTER_CARD_CSS = """
+.cluster-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin: 0.5rem 0 1.25rem;
+}
+.cluster-card {
+    padding: 1rem;
+    border: 1px solid rgba(128, 128, 128, 0.28);
+    border-radius: 0.75rem;
+    background: rgba(128, 128, 128, 0.04);
+}
+.cluster-card h3 {
+    margin: 0 0 0.25rem;
+    font-size: 1.05rem;
+}
+.cluster-card-size {
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+.cluster-card-description {
+    min-height: 3rem;
+    margin: 0.75rem 0 1rem;
+}
+.cluster-stat + .cluster-stat {
+    margin-top: 0.85rem;
+}
+.cluster-stat-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.3rem;
+    font-size: 0.8rem;
+}
+.cluster-stat-heading strong {
+    white-space: nowrap;
+}
+.cluster-stat-track {
+    height: 0.45rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(128, 128, 128, 0.2);
+}
+.cluster-stat-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--primary-color, #4f46e5);
+}
+.cluster-stat-fill-negative {
+    margin-left: auto;
+    background: #ef4444;
+}
+.cluster-card-insufficient {
+    border-style: dashed;
+    background: rgba(128, 128, 128, 0.07);
+}
+.cluster-card-insufficient p {
+    opacity: 0.7;
+}
+"""
 
 st.set_page_config(
     page_title="LoL Ranked Analytics",
     layout="wide",
     page_icon="⚔️",
 )
+
+
+@st.cache_data
+def _champion_icon_uri(champion_name: str) -> str | None:
+    icon_path = CHAMPION_ICONS.get(champion_name)
+    if icon_path is None:
+        return None
+    encoded_icon = base64.b64encode(icon_path.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{encoded_icon}"
+
+
+def _champion_cell(champion_name: str) -> str:
+    icon_uri = _champion_icon_uri(champion_name)
+    icon = (
+        f'<img src="{icon_uri}" width="28" height="28" alt="" loading="lazy">'
+        if icon_uri
+        else ""
+    )
+    return f'<span class="matchup-champion">{icon}{html.escape(champion_name)}</span>'
+
+
+def _win_rate_chip(win_rate: float) -> str:
+    if win_rate >= WIN_RATE_CLEAR_MAJORITY:
+        tone = "majority"
+    elif win_rate <= WIN_RATE_CLEAR_MINORITY:
+        tone = "minority"
+    else:
+        tone = "neutral"
+    return (
+        f'<span class="matchup-win-rate matchup-win-rate-{tone}">'
+        f"{win_rate:.1%}</span>"
+    )
+
+
+def _cluster_cards(cluster_summary: pd.DataFrame) -> str:
+    cards = []
+    for cluster in cluster_summary.itertuples(index=False):
+        cluster_name = str(cluster.cluster_name)
+        size = int(cluster.size)
+        stats = CLUSTER_CARD_STATS.get(cluster_name)
+        if stats is None:
+            cards.append(
+                '<article class="cluster-card cluster-card-insufficient">'
+                f"<h3>{html.escape(cluster_name)}</h3>"
+                f"<p>Not enough data yet &mdash; {size:,} games, "
+                "too few to characterize.</p></article>"
+            )
+            continue
+
+        stat_rows = []
+        for feature, label, is_proxy in stats:
+            feature_max = float(cluster_summary[feature].max())
+            relative_pct = float(getattr(cluster, feature)) / feature_max * 100
+            bar_width = min(abs(relative_pct), 100.0)
+            negative_class = (
+                " cluster-stat-fill-negative" if relative_pct < 0 else ""
+            )
+            percent_label = f"{abs(relative_pct):.1f}% of max"
+            if relative_pct < 0:
+                percent_label = f"&minus;{percent_label}"
+            proxy_marker = "&asymp; " if is_proxy else ""
+            stat_rows.append(
+                '<div class="cluster-stat">'
+                '<div class="cluster-stat-heading">'
+                f"<span>{proxy_marker}{html.escape(label)}</span>"
+                f"<strong>{percent_label}</strong></div>"
+                '<div class="cluster-stat-track" aria-hidden="true">'
+                f'<span class="cluster-stat-fill{negative_class}" '
+                f'style="width:{bar_width:.1f}%"></span></div></div>'
+            )
+
+        cards.append(
+            '<article class="cluster-card">'
+            f"<h3>{html.escape(cluster_name)}</h3>"
+            f'<div class="cluster-card-size">{size:,} games</div>'
+            '<p class="cluster-card-description">'
+            f"{html.escape(CLUSTER_DESCRIPTIONS[cluster_name])}.</p>"
+            f"{''.join(stat_rows)}</article>"
+        )
+
+    return (
+        f"<style>{CLUSTER_CARD_CSS}</style>"
+        f'<div class="cluster-card-grid">{"".join(cards)}</div>'
+    )
 
 
 @st.cache_resource
@@ -167,10 +403,19 @@ st.sidebar.caption(
     f"All data is Season 16 mid-lane only ({ANALYSIS_ROLE}, >= {CURRENT_SEASON_START})."
 )
 champions = sorted(matchups["champion_name"].dropna().unique().tolist())
-selected_champion = st.sidebar.selectbox(
+st.sidebar.markdown("**Champion**")
+champion_filter, selected_icon = st.sidebar.columns([5, 1])
+selected_champion = champion_filter.selectbox(
     "Champion",
     ["All Champions", *champions],
+    label_visibility="collapsed",
 )
+if selected_champion != "All Champions":
+    selected_icon_path = CHAMPION_ICONS.get(selected_champion)
+    if selected_icon_path is not None:
+        selected_icon.image(str(selected_icon_path), width=28)
+cluster_summary = _query_clusters(conn, db_cache_key)
+cluster_summary["cluster_name"] = cluster_summary["cluster_id"].map(CLUSTER_NAMES)
 
 overview_tab, champions_tab, patterns_tab = st.tabs(
     [" Overview", " Champions", " Patterns"]
@@ -179,6 +424,17 @@ overview_tab, champions_tab, patterns_tab = st.tabs(
 with overview_tab:
     st.header("Overview")
     overview = _query_overview(conn, db_cache_key).iloc[0]
+    dominant_cluster = cluster_summary.loc[cluster_summary["size"].idxmax()]
+    cluster_name = str(dominant_cluster["cluster_name"])
+    dominant_pct = dominant_cluster["size"] / cluster_summary["size"].sum()
+    description = CLUSTER_DESCRIPTIONS.get(
+        cluster_name, "not enough data exists to describe this pattern reliably"
+    )
+    st.info(
+        f"You've played {int(overview['total_games']):,} ranked mid games this season "
+        f"and won {float(overview['win_rate']):.1%} of them. Most of your games \u2014 "
+        f"{dominant_pct:.1%} \u2014 fall into the '{cluster_name}' pattern: {description}."
+    )
     total_games, win_rate, avg_kda, avg_cs = st.columns(4)
     total_games.metric("Total Games", f"{int(overview['total_games']):,}")
     win_rate.metric("Win Rate", f"{float(overview['win_rate']):.1%}")
@@ -254,6 +510,7 @@ with champions_tab:
 
         matchup_table = filtered_matchups[
             [
+                "champion_name",
                 "opp_champion_name",
                 "games",
                 "our_winrate",
@@ -261,13 +518,41 @@ with champions_tab:
                 "our_avg_kda",
                 "opp_avg_kda",
             ]
-        ].copy()
-        matchup_table["our_winrate"] = matchup_table["our_winrate"] * 100
-        matchup_table = matchup_table.rename(
-            columns={"our_winrate": "our_winrate (%)"}
-        ).round(2)
+        ].rename(
+            columns={
+                "champion_name": "Your Champion",
+                "opp_champion_name": "Opponent",
+                "games": "Games",
+                "our_winrate": "Win Rate",
+                "cs_diff": "CS Diff",
+                "our_avg_kda": "Your Avg KDA",
+                "opp_avg_kda": "Opponent Avg KDA",
+            }
+        )
         st.subheader("Matchups")
-        st.dataframe(matchup_table, use_container_width=True)
+        st.caption(
+            "Win-rate chips: green at 55% or higher, red at 45% or lower, "
+            "and gray between them."
+        )
+        matchup_html = matchup_table.to_html(
+            index=False,
+            border=0,
+            escape=False,
+            classes="matchup-table",
+            formatters={
+                "Your Champion": _champion_cell,
+                "Opponent": _champion_cell,
+                "Games": "{:,.0f}".format,
+                "Win Rate": _win_rate_chip,
+                "CS Diff": "{:.2f}".format,
+                "Your Avg KDA": "{:.2f}".format,
+                "Opponent Avg KDA": "{:.2f}".format,
+            },
+        )
+        st.html(
+            f"<style>{MATCHUP_TABLE_CSS}</style>"
+            f'<div class="matchup-table-wrap">{matchup_html}</div>',
+        )
 
         st.subheader("CS Advantage vs Win Rate")
         scatter = px.scatter(
@@ -276,9 +561,8 @@ with champions_tab:
             y="our_winrate",
             size="games",
             size_max=20,
-            color="our_winrate",
-            color_continuous_scale="RdBu_r",
-            color_continuous_midpoint=0.5,
+            color="games",
+            color_continuous_scale="Blues",
             hover_name="opp_champion_name",
             hover_data={
                 "games": True,
@@ -288,6 +572,7 @@ with champions_tab:
             labels={
                 "cs_diff": "CS Advantage (our avg − opponent avg)",
                 "our_winrate": "Win Rate",
+                "games": "Games Played",
             },
         )
         scatter.update_yaxes(tickformat=".0%")
@@ -297,8 +582,6 @@ with champions_tab:
 
 with patterns_tab:
     st.header("Patterns")
-    cluster_summary = _query_clusters(conn, db_cache_key)
-    cluster_summary["cluster_name"] = cluster_summary["cluster_id"].map(CLUSTER_NAMES)
 
     st.subheader("Cluster Distribution")
     distribution = px.bar(
@@ -311,24 +594,27 @@ with patterns_tab:
     distribution.update_traces(textposition="outside")
     st.plotly_chart(distribution, use_container_width=True)
 
-    st.subheader("Cluster Feature Profile (z-scored per feature)")
-    st.caption(PROXY_LABEL_NOTE)
-    raw_centroids = cluster_summary.set_index("cluster_id")[FEATURE_COLS].astype(float)
-    feature_std = raw_centroids.std(axis=0, ddof=0).replace(0, 1)
-    normalized_centroids = (raw_centroids - raw_centroids.mean(axis=0)) / feature_std
-    heatmap = go.Figure(
-        data=go.Heatmap(
-            z=normalized_centroids.to_numpy(),
-            x=[FEATURE_DISPLAY_NAMES.get(feature, feature) for feature in FEATURE_COLS],
-            y=[CLUSTER_NAMES[int(cluster_id)] for cluster_id in raw_centroids.index],
-            text=raw_centroids.to_numpy(),
-            texttemplate="%{text:.2f}",
-            colorscale="RdBu_r",
-            colorbar={"title": "z-score"},
+    st.html(_cluster_cards(cluster_summary))
+
+    with st.expander("View full statistical breakdown", expanded=False):
+        st.subheader("Cluster Feature Profile (z-scored per feature)")
+        st.caption(PROXY_LABEL_NOTE)
+        raw_centroids = cluster_summary.set_index("cluster_id")[FEATURE_COLS].astype(float)
+        feature_std = raw_centroids.std(axis=0, ddof=0).replace(0, 1)
+        normalized_centroids = (raw_centroids - raw_centroids.mean(axis=0)) / feature_std
+        heatmap = go.Figure(
+            data=go.Heatmap(
+                z=normalized_centroids.to_numpy(),
+                x=[FEATURE_DISPLAY_NAMES.get(feature, feature) for feature in FEATURE_COLS],
+                y=[CLUSTER_NAMES[int(cluster_id)] for cluster_id in raw_centroids.index],
+                text=raw_centroids.to_numpy(),
+                texttemplate="%{text:.2f}",
+                colorscale="RdBu_r",
+                colorbar={"title": "z-score"},
+            )
         )
-    )
-    heatmap.update_layout(title="Cluster Feature Profile (z-scored per feature)")
-    st.plotly_chart(heatmap, use_container_width=True)
+        heatmap.update_layout(title="Cluster Feature Profile (z-scored per feature)")
+        st.plotly_chart(heatmap, use_container_width=True)
 
     st.subheader("Average Gold Trajectory by Cluster")
     trajectories = _query_trajectories(conn, db_cache_key)
