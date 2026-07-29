@@ -1,6 +1,6 @@
 # Collaboration Guide
 
-This file defines how decisions, implementation, review, and handoffs work. Stable engineering rules belong in `CLAUDE.md`; current plans, metrics, and decisions belong in `CONTEXT.md`; chat-session handoffs belong in `SESSIONS.md`; implementation details belong in code and tests. Do not duplicate them here.
+This file defines how decisions, implementation, review, and handoffs work. Stable engineering rules belong in `CLAUDE.md`; runnable procedures — pipeline commands, DuckDB verification, failure triage — belong in `.claude/skills/`; current plans, metrics, and decisions belong in `CONTEXT.md`; chat-session handoffs belong in `SESSIONS.md`; implementation details belong in code and tests. Do not duplicate them here.
 
 ## Roles
 
