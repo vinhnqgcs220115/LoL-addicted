@@ -6,6 +6,8 @@ import duckdb
 import numpy as np
 import pandas as pd
 
+from src.processor import ROAM_WINDOW_COLUMNS
+
 BASE_DIR = Path(__file__).resolve().parents[1]
 DB_PATH = BASE_DIR / "data" / "lol.duckdb"
 
@@ -501,11 +503,45 @@ def build_feature_matrix(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     fm["avg_cs_sacrifice"] = np.log1p(fm["avg_cs_sacrifice"])
     fm["roam_impact_rate"] = fm["roam_impact_rate"].astype(float).fillna(0.5)
 
-    # Persist to DuckDB — idempotent: drop and recreate from registered DataFrame
+    # Persist both derived tables atomically so their roam counts stay aligned.
     conn.register("_fm_register", fm)
-    conn.execute("DROP TABLE IF EXISTS feature_matrix")
-    conn.execute("CREATE TABLE feature_matrix AS SELECT * FROM _fm_register")
-    conn.unregister("_fm_register")
+    if not roam_df.empty:
+        conn.register(
+            "_roam_windows_register",
+            roam_df[list(ROAM_WINDOW_COLUMNS)],
+        )
+    conn.execute("BEGIN")
+    try:
+        if roam_df.empty:
+            conn.execute("DELETE FROM roam_windows")
+        else:
+            # DuckDB cannot delete and reinsert the same primary key in one transaction.
+            conn.execute("""
+                DELETE FROM roam_windows old
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM _roam_windows_register new
+                    WHERE new.match_id = old.match_id
+                      AND new.roam_start_min = old.roam_start_min
+                      AND new.roam_end_min = old.roam_end_min
+                )
+            """)
+            roam_columns = ", ".join(ROAM_WINDOW_COLUMNS)
+            conn.execute(f"""
+                INSERT OR REPLACE INTO roam_windows ({roam_columns})
+                SELECT {roam_columns}
+                FROM _roam_windows_register
+            """)
+        conn.execute("DROP TABLE IF EXISTS feature_matrix")
+        conn.execute("CREATE TABLE feature_matrix AS SELECT * FROM _fm_register")
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    finally:
+        conn.unregister("_fm_register")
+        if not roam_df.empty:
+            conn.unregister("_roam_windows_register")
 
     return fm
 

@@ -21,6 +21,7 @@ def test_init_schema_creates_all_tables() -> None:
     assert "matches" in tables
     assert "match_timelines" in tables
     assert "match_deaths" in tables
+    assert "roam_windows" in tables
 
 
 def test_init_schema_raises_when_existing_table_columns_do_not_match() -> None:
@@ -38,6 +39,26 @@ def test_init_schema_raises_when_existing_table_columns_do_not_match() -> None:
     message = str(excinfo.value)
     assert "table matches" in message
     assert "missing columns: opp_assists" in message
+    assert "unexpected columns: none" in message
+
+
+def test_init_schema_guards_roam_window_columns() -> None:
+    conn = duckdb.connect(":memory:")
+    columns = [
+        column for column in processor.ROAM_WINDOW_COLUMNS if column != "roam_result"
+    ]
+    column_sql = ", ".join(f"{column} VARCHAR" for column in columns)
+
+    try:
+        conn.execute(f"CREATE TABLE roam_windows ({column_sql})")
+        with pytest.raises(processor.SchemaMismatchError) as excinfo:
+            processor.init_schema(conn)
+    finally:
+        conn.close()
+
+    message = str(excinfo.value)
+    assert "table roam_windows" in message
+    assert "missing columns: roam_result" in message
     assert "unexpected columns: none" in message
 
 

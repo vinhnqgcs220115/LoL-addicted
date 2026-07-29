@@ -152,6 +152,39 @@ def test_roam_timing_detects_two_minute_mid_roam() -> None:
     assert roam["roam_end_min"] == 6
 
 
+def test_build_feature_matrix_persists_roam_windows() -> None:
+    conn = _make_conn()
+    conn.execute("""
+        UPDATE match_timelines
+        SET position_x = 12000, position_y = 7000,
+            kills = CASE WHEN timestamp_min = 6 THEN 1 ELSE kills END
+        WHERE match_id = 'S16_A' AND timestamp_min IN (5, 6)
+    """)
+
+    fm = build_feature_matrix(conn)
+    build_feature_matrix(conn)
+    rows = conn.execute("""
+        SELECT match_id, roam_start_min, roam_end_min, kills_during_roam, roam_result
+        FROM roam_windows
+        ORDER BY match_id, roam_start_min
+    """).fetchall()
+    conn.execute("""
+        UPDATE match_timelines
+        SET position_x = 7500 + timestamp_min * 10,
+            position_y = 7500 + timestamp_min * 10,
+            kills = 0
+        WHERE match_id = 'S16_A' AND timestamp_min IN (5, 6)
+    """)
+    refreshed_fm = build_feature_matrix(conn)
+    remaining_rows = conn.execute("SELECT COUNT(*) FROM roam_windows").fetchone()[0]
+    conn.close()
+
+    assert rows == [("S16_A", 5, 6, 1, "impact")]
+    assert len(rows) == int(fm["total_roams"].sum())
+    assert remaining_rows == 0
+    assert int(refreshed_fm["total_roams"].sum()) == 0
+
+
 def test_roam_timing_uses_cs_drop_when_position_missing() -> None:
     conn = _make_conn()
     conn.execute("""
