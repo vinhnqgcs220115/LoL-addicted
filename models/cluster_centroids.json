@@ -1,0 +1,70 @@
+{
+  "feature_cols": [
+    "gold_delta",
+    "total_deaths",
+    "deaths_while_ahead",
+    "tilt_spiral_ratio",
+    "max_death_streak",
+    "total_roams",
+    "avg_cs_sacrifice",
+    "roam_impact_rate",
+    "tilt_index"
+  ],
+  "feature_scales": {
+    "gold_delta": 781.0503228870342,
+    "total_deaths": 3.3840027588684247,
+    "deaths_while_ahead": 1.0210213508707324,
+    "tilt_spiral_ratio": 0.24853638509882797,
+    "max_death_streak": 2.5557089024126927,
+    "total_roams": 0.4269556978510526,
+    "avg_cs_sacrifice": 0.2353009249772648,
+    "roam_impact_rate": 0.21912238371069975,
+    "tilt_index": 0.21313288919288925
+  },
+  "centroids": {
+    "0": {
+      "gold_delta": -439.35591133005033,
+      "total_deaths": 9.771428571428572,
+      "deaths_while_ahead": 0.12571428571428572,
+      "tilt_spiral_ratio": 0.6751091428571427,
+      "max_death_streak": 4.8742857142857146,
+      "total_roams": 0.17714285714285713,
+      "avg_cs_sacrifice": 0.00020756947072000213,
+      "roam_impact_rate": 0.45714285714285713,
+      "tilt_index": 0.537238095238095
+    },
+    "1": {
+      "gold_delta": 836.8488505747124,
+      "total_deaths": 8.55,
+      "deaths_while_ahead": 2.3333333333333335,
+      "tilt_spiral_ratio": 0.6020366666666668,
+      "max_death_streak": 3.55,
+      "total_roams": 0.3333333333333333,
+      "avg_cs_sacrifice": 0.0,
+      "roam_impact_rate": 0.6333333333333333,
+      "tilt_index": 0.5716666666666668
+    },
+    "2": {
+      "gold_delta": 228.20397167487778,
+      "total_deaths": 4.357142857142857,
+      "deaths_while_ahead": 0.39285714285714285,
+      "tilt_spiral_ratio": 0.2287080357142857,
+      "max_death_streak": 0.9464285714285714,
+      "total_roams": 0.14285714285714285,
+      "avg_cs_sacrifice": 0.004692091072628189,
+      "roam_impact_rate": 0.4732142857142857,
+      "tilt_index": 0.4678571428571429
+    },
+    "3": {
+      "gold_delta": 159.64408866995095,
+      "total_deaths": 9.142857142857142,
+      "deaths_while_ahead": 0.8571428571428571,
+      "tilt_spiral_ratio": 0.6206000000000002,
+      "max_death_streak": 4.0,
+      "total_roams": 1.0,
+      "avg_cs_sacrifice": 1.5921001005563908,
+      "roam_impact_rate": 0.7142857142857143,
+      "tilt_index": 0.5428571428571429
+    }
+  }
+}

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import warnings
 from pathlib import Path
 
 import duckdb
@@ -29,6 +31,7 @@ FEATURE_COLS = [
 N_CLUSTERS = 4
 RANDOM_STATE = 42
 N_INIT = 20
+CENTROID_SNAPSHOT_FILE = "cluster_centroids.json"
 
 
 def fit_clusters(
@@ -60,6 +63,118 @@ def fit_clusters(
     return model, scaler, labels, score
 
 
+def _guard_cluster_name_binding(
+    profile: pd.DataFrame,
+    scaler: StandardScaler,
+    snapshot_path: Path,
+) -> None:
+    expected_ids = list(range(N_CLUSTERS))
+    current_profile = profile.copy()
+    current_profile.index = current_profile.index.astype(int)
+    if sorted(current_profile.index.tolist()) != expected_ids:
+        raise ValueError(
+            f"Expected centroid profiles for cluster IDs {expected_ids}, "
+            f"got {sorted(current_profile.index.tolist())}."
+        )
+    current_centroids = current_profile.loc[expected_ids, FEATURE_COLS].to_numpy(
+        dtype=float
+    )
+
+    if not snapshot_path.exists():
+        snapshot = {
+            "feature_cols": FEATURE_COLS,
+            "feature_scales": {
+                column: float(scale)
+                for column, scale in zip(FEATURE_COLS, scaler.scale_, strict=True)
+            },
+            "centroids": {
+                str(cluster_id): {
+                    column: float(current_profile.loc[cluster_id, column])
+                    for column in FEATURE_COLS
+                }
+                for cluster_id in expected_ids
+            },
+        }
+        snapshot_path.write_text(
+            json.dumps(snapshot, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        raise RuntimeError(
+            f"No named centroid snapshot existed. Candidate saved to {snapshot_path}. "
+            "Refusing to persist models or labels; review it, then rerun."
+        )
+
+    try:
+        snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        expected_keys = {str(cluster_id) for cluster_id in expected_ids}
+        if snapshot["feature_cols"] != FEATURE_COLS:
+            raise ValueError("feature_cols do not match FEATURE_COLS")
+        if set(snapshot["centroids"]) != expected_keys:
+            raise ValueError(f"centroid IDs must be {sorted(expected_keys)}")
+        if set(snapshot["feature_scales"]) != set(FEATURE_COLS):
+            raise ValueError("feature_scales do not match FEATURE_COLS")
+        if any(
+            set(snapshot["centroids"][cluster_id]) != set(FEATURE_COLS)
+            for cluster_id in expected_keys
+        ):
+            raise ValueError("centroid features do not match FEATURE_COLS")
+
+        named_centroids = np.asarray(
+            [
+                [
+                    snapshot["centroids"][str(cluster_id)][column]
+                    for column in FEATURE_COLS
+                ]
+                for cluster_id in expected_ids
+            ],
+            dtype=float,
+        )
+        feature_scales = np.asarray(
+            [snapshot["feature_scales"][column] for column in FEATURE_COLS],
+            dtype=float,
+        )
+        if not np.isfinite(named_centroids).all():
+            raise ValueError("centroids contain non-finite values")
+        if not np.isfinite(feature_scales).all() or (feature_scales <= 0).any():
+            raise ValueError("feature_scales must be finite and positive")
+    except (json.JSONDecodeError, KeyError, OSError, TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid centroid snapshot at {snapshot_path}: {exc}") from exc
+
+    distances = np.linalg.norm(
+        (
+            current_centroids[:, np.newaxis, :]
+            - named_centroids[np.newaxis, :, :]
+        )
+        / feature_scales,
+        axis=2,
+    )
+    nearest_ids = distances.argmin(axis=1)
+    nearest_distances = distances.min(axis=1)
+    same_id_distances = distances.diagonal()
+    drifted_ids = [
+        cluster_id
+        for cluster_id in expected_ids
+        if nearest_distances[cluster_id] < same_id_distances[cluster_id]
+    ]
+    if drifted_ids:
+        details = "; ".join(
+            f"cluster_id {cluster_id} is closest to named cluster_id "
+            f"{nearest_ids[cluster_id]} (standardized distance "
+            f"{nearest_distances[cluster_id]:.3f}) instead of its own named "
+            f"centroid (distance {same_id_distances[cluster_id]:.3f}, margin "
+            f"{same_id_distances[cluster_id] - nearest_distances[cluster_id]:.3f})"
+            for cluster_id in drifted_ids
+        )
+        message = (
+            f"Cluster name binding drift detected: {details}. Refusing to persist "
+            "models or labels; review the cluster names and centroid snapshot."
+        )
+        warnings.warn(message, RuntimeWarning, stacklevel=2)
+        raise RuntimeError(message)
+
+    print(f"Named centroid binding verified -> {snapshot_path}")
+
+
 def train_and_persist(
     conn: duckdb.DuckDBPyConnection,
     models_dir: Path = MODELS_DIR,
@@ -85,6 +200,11 @@ def train_and_persist(
     print(profile.round(3).to_string())
 
     models_dir.mkdir(parents=True, exist_ok=True)
+    _guard_cluster_name_binding(
+        profile,
+        scaler,
+        models_dir / CENTROID_SNAPSHOT_FILE,
+    )
     joblib.dump(model, models_dir / "kmeans.pkl")
     joblib.dump(scaler, models_dir / "scaler.pkl")
 
