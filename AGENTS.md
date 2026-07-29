@@ -26,8 +26,10 @@ Run from the repository root in PowerShell:
 .\scripts\workflow.ps1 refresh   # Run the complete incremental pipeline
 .\scripts\workflow.ps1 rebuild   # Recreate derived data from raw files
 .\scripts\workflow.ps1 test      # Run pytest
+.\scripts\workflow.ps1 smoke     # Five-match live pipeline check; needs a valid Riot key
 .\scripts\workflow.ps1 deploy-db # Create the Streamlit database snapshot
-python -m ruff check src tests   # Lint Python
+.\scripts\workflow.ps1 dashboard # Start the local Streamlit app
+python -m ruff check src tests dashboard scripts   # Lint Python
 ```
 
 Commands stop on the first failed native process. Use `rebuild` after parser or schema changes.

@@ -1,7 +1,7 @@
 # Project Context
 
 **Phase:** 4 complete
-**Last updated:** 2026-07-08
+**Last updated:** 2026-07-18
 
 ---
 
@@ -28,6 +28,9 @@
 - [x] `dashboard/app.py`: Overview / Champions / Patterns tabs (3 tabs, no Predictor)
 - [x] Deployed to Streamlit Cloud with public URL
 - [x] README.md updated with deployment details
+- [x] Add a fail-closed guard that refuses to persist a retrain when any cluster's centroid is no longer nearest to its own previously-named centroid
+- [x] Persist per-window roam results in source and sanitized deployment databases
+- [x] Add Overview narrative, champion matchup icons/context, and plain-language pattern cards
 
 ### Stretch Goal — Pro Comparison (if Phase 2–4 finish on time)
 - [ ] Extend `collector.py` with KR/EUW server routing
@@ -38,20 +41,20 @@
 
 ## Last Verified Status
 
-Counts below are from the last verified pipeline run; documentation-only edits did not re-run the pipeline.
+Counts below are from the verified 2026-07-18 refresh and deployment snapshot rebuild.
 
 ```
-Matches collected    : 542 (354 S16 mid, 61 S16 off-role, 127 S15)
-Matches NULLs        : win=0, match_id=0, champion_name=0
-Matches date range   : 2025-09-11 to 2026-07-05
-Mid opponent fields  : champion=354/354, cs=354/354
-Death attribution    : reported=4,320, stored=4,320, mismatched matches=0
-Timelines collected  : 542 (16,080 timeline rows)
-Feature matrix       : 354 rows, 19 columns, 0 NULL — Season 16 mid only
-Clustering           : trained — 354 labels, silhouette 0.243, cluster sizes 175 / 60 / 112 / 7
-Tests                : 55 passed
-Deployment snapshot  : 354 sanitized matches; 0 original Riot match IDs
-Dashboard            : 3 tabs implemented; public Streamlit app verified
+Matches collected    : 594 (396 S16 mid, 71 S16 off-role, 127 pre-S16)
+Matches NULLs        : win=0, match_id=0, champion_name=0, game_datetime=0
+Matches date range   : 2025-09-11 to 2026-07-18
+Mid opponent fields  : champion=396/396, cs=396/396
+Death attribution    : reported=4,743, stored=4,743, mismatched matches=0
+Timelines collected  : 594 (17,566 timeline rows)
+Feature matrix       : 396 rows, 19 columns, 0 NULL — Season 16 mid only
+Clustering           : trained — 396 labels, silhouette 0.227, cluster sizes 188 / 73 / 128 / 7
+Tests                : 75 passed; Ruff clean
+Deployment snapshot  : 396 sanitized matches; 11,795 timelines; 3,117 deaths; 84 roam windows; 0 original Riot match IDs
+Dashboard            : 3 tabs rendered locally with 0 Streamlit exceptions; public app not redeployed or re-verified in this refresh
 Gameplay proxy caveat: dashboard labels are qualified in UI; underlying throw/comeback, death-context, and roam-derived metrics remain heuristic proxies
 Live URL             : https://myishaa.streamlit.app/
 ```
@@ -66,6 +69,7 @@ Live URL             : https://myishaa.streamlit.app/
 | K-Means over XGBoost for modeling | Win predictor removed; clustering behavioral aggregates does not benefit from gradient boosting |
 | Cluster names remain a user decision | Names must follow centroid and trajectory review; pre-naming would imply unsupported behavior |
 | Clusters 0/1/2 named from centroid review; cluster 3 (n=7) left unnamed | Cluster 3's sample size still too small to support a name; the other three had clear, distinct centroid signals. |
+| K-Means output IDs are guarded, not aligned, before persistence | K-Means numeric IDs are arbitrary; the guard refuses to persist a retrain whenever any cluster's centroid is no longer closest to its own previously-named centroid, including a clean bijective permutation — it does not remap IDs |
 | Plotly over Matplotlib | Interactive charts required in Streamlit |
 | `requests` over `httpx` | Sync is sufficient at this data scale; simpler API |
 | Ranked Solo/Duo only (queue=420) | Cleaner signal; removes ARAM and normal queue noise |
@@ -81,7 +85,7 @@ Live URL             : https://myishaa.streamlit.app/
 | tilt_index scoped to S16 mid only | Consistent with ANALYSIS_ROLE filter; loses S15 rolling context for first S16 games, accepted at this data scale |
 | game_datetime retained in deploy DB | Timestamps plus champion/version could identify matches on public sites; accepted risk for a portfolio project |
 | Gameplay labels stay heuristic until full state is parsed | Current throw/comeback, death-context, and roam-impact labels use personal timeline proxies; `GAME_MECHANICS.md` owns the domain caveats |
-| README screenshots added | Three dashboard screenshots exist under `docs/screenshots/` and are referenced from `README.md`. |
+| README screenshots added | Three dashboard screenshots exist under docs/screenshots/ and are referenced from README.md. Note: they predate the newer champion-icon/card UI and should be recaptured when convenient. |
 
 ### Deployment notes (Phase 4)
 
@@ -100,11 +104,14 @@ Before a public deployment commit, review residual re-identification risk in the
 - `is_early_death` appears in the Patterns death-context breakdown.
 - Clusters 0/1/2 have user-facing names from centroid review; cluster 3 remains numeric because n=7 is too small to support a name.
 - Dashboard shows cluster sample sizes; cluster 3 currently has only 7 games and must not support strong conclusions.
+- Overview has a plain-language season headline; Champions shows both sides of each matchup with icons and games-colored sample size; Patterns leads with plain-language cards and keeps the z-score heatmap in an expander.
 - Keep the Champions tab mid-only. All-role support requires role-aware opponent extraction and a full rebuild.
 
 ## Known Issues
 
 - Non-blocking: underlying Throw/Comeback, Overextension, Deficit Fight, Post-Laning Throw, and roam impact metrics remain proxy labels. Dashboard UI now qualifies them; true gameplay-ground-truth analysis requires fuller team/opponent/objective/vision state.
+- Non-blocking: the public app still serves the last committed deployment snapshot until `data/lol_deploy.duckdb` is committed and pushed; the dated README screenshots still need recapture.
+- Before the next commit, add `models/cluster_centroids.json`; the reviewed binding snapshot is currently untracked, while `models/*.pkl` correctly remain ignored.
 
 ---
 

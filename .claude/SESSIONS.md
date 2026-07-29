@@ -4,12 +4,12 @@ Purpose: preserve project continuity across chat sessions. Read this file at the
 
 ## How To Use This File
 
-- At session start: read `AGENTS.md`, `.claude/CLAUDE.md`, `.claude/CONTEXT.md`, `.claude/COLLAB.md`, and `.claude/SESSIONS.md` first. Continue from the latest session entry and respect the open items. If this touches gameplay labels/mechanics, also read `GAME_MECHANICS.md` before changing anything.
+- At session start: read `AGENTS.md`, `.claude/CLAUDE.md`, `.claude/CONTEXT.md`, `.claude/COLLAB.md`, and `.claude/SESSIONS.md` first. Continue from the latest session entry and respect the open items. If this touches gameplay labels/mechanics, also read `GAME_MECHANICS.md` before changing anything. Only `.claude/CLAUDE.md` loads automatically in Claude Code; every other file here must be opened deliberately.
 - During long sessions or before context compaction: update the active session entry with work completed, commands run, and unresolved decisions. Do not wait until the end if the thread is getting long.
 - At session close: append or complete one dated entry. Record every separate bugfix, adjustment, doc change, data refresh, verification run, and open TODO created during the session.
 - Keep entries factual. Include changed files, behavior changed, generated-data effects, verification results, and what remains open.
 - Do not store secrets, Riot API keys, `.env` values, or raw private account details here.
-- Do not duplicate full docs. Link or name the authoritative file instead: architecture in `CLAUDE.md`, project status in `CONTEXT.md`, mechanics in `GAME_MECHANICS.md`, workflow commands in `README.md` and `scripts/workflow.ps1`.
+- Do not duplicate full docs. Link or name the authoritative file instead: architecture and standing rules in `CLAUDE.md`, pipeline runbook and DuckDB verification in the `pipeline-ops` skill, failure triage in the `debug-pipeline` skill, project status in `CONTEXT.md`, mechanics in `GAME_MECHANICS.md`, workflow commands in `README.md` and `scripts/workflow.ps1`.
 
 ## Direction For Future Sessions
 
@@ -24,27 +24,130 @@ Purpose: preserve project continuity across chat sessions. Read this file at the
 
 ## Current Project Snapshot
 
-Last verified on 2026-07-05 after refresh, deploy-db, tests, and Ruff.
+Last verified locally on 2026-07-18 after refresh, deploy-db, tests, Ruff, and Streamlit AppTest.
 
 - Phase: Phase 4 complete.
 - Source DB: `data/lol.duckdb`, local/generated, gitignored.
 - Deploy DB: `data/lol_deploy.duckdb`, committed deployment artifact, dashboard opens it read-only.
-- Data counts: 542 matches total; 354 Season 16 mid rows; 16,080 timeline rows; 354 feature rows; 354 cluster labels.
-- Cluster sizes: 175 / 60 / 112 / 7; silhouette 0.243.
-- Deploy DB counts: 354 matches, 10,573 timeline rows, 2,775 death rows, 354 feature rows, 354 cluster labels.
-- Tests: 52 passed. Ruff clean after latest Python changes.
-- Dashboard: public app verified at `https://myishaa.streamlit.app/`; refreshed deploy DB was committed/pushed on `main` at `db5a55a`.
-- Worktree at initialization had tracked edits in `.claude/CLAUDE.md`, `.claude/CONTEXT.md`, `README.md`, `data/lol_deploy.duckdb`, `src/collector.py`, `tests/test_collector.py`; untracked `GAME_MECHANICS.md` and `assets/`.
+- Data counts: 594 matches total; 396 Season 16 mid rows; 17,566 timeline rows; 396 feature rows; 396 cluster labels.
+- Cluster sizes: 188 / 73 / 128 / 7; silhouette 0.227.
+- Deploy DB counts: 396 matches, 11,795 timeline rows, 3,117 death rows, 84 roam windows, 396 feature rows, 396 cluster labels.
+- Tests: 75 passed. Ruff clean across `src tests dashboard scripts`.
+- Dashboard: all three tabs render locally with zero AppTest exceptions. The public URL remains `https://myishaa.streamlit.app/`, but this refresh has not been committed, pushed, or live-verified.
+- Worktree remains intentionally dirty with current dashboard, pipeline, generated-data, asset, model, and documentation changes; no commit or push was performed.
 
 ## Open Items
 
-- Do not name clusters until centroid and trajectory review supports the names. Cluster 3 has only 7 games, so avoid strong conclusions.
+- Clusters 0/1/2 are named from centroid review. Cluster 3 still has only 7 games and remains deliberately uncharacterized.
 - Improve gameplay fidelity if needed: parse assists and objective events for roam impact; use opponent/team gold, XP, turret/objective state, position, and death context for throw/death labels; treat missing death snapshots as unknown, not zero-gold evidence.
 - Pro comparison remains stretch work: KR/EUW routing, collect Challenger mid games, compare CS diff curve and roaming timing.
 - All-role analytics remain future work and require role-aware opponent extraction, tests, and a full DuckDB rebuild.
-- `GAME_MECHANICS.md` and `assets/` were untracked at initialization. Decide whether to commit them with the docs changes.
+- Commit and push the refreshed `data/lol_deploy.duckdb` before claiming the public app has current data.
+- Add `models/cluster_centroids.json` to the next commit; it is the reviewed name-binding snapshot and is currently untracked. Keep `models/*.pkl` ignored.
+- Recapture the three files under docs/screenshots/ — they predate the newer champion-icon/card UI. The embeds themselves are already restored; this is a visual-freshness task, not a missing-file one.
 
 ## Sessions
+
+### 2026-07-29 - Agent-config health check and documentation sync
+
+Files changed:
+- `.claude/CLAUDE.md`
+- `.claude/skills/pipeline-ops/SKILL.md` (new)
+- `.claude/skills/debug-pipeline/SKILL.md` (new)
+- `.claude/COLLAB.md`
+- `.claude/SESSIONS.md`
+- `AGENTS.md`
+- `GAME_MECHANICS.md`
+
+Behavior changed:
+- No source, test, pipeline, or generated-data changes. Documentation and agent configuration only.
+- `.claude/CLAUDE.md` trimmed from 9,059 to ~5,700 characters. Removed the Architecture section (derivable from `src/`), the Preferred Libraries table (duplicated `requirements.txt`), and two lines restating the `tests/` layout and the standard `pytest` invocation. Module Contracts, Data Rules, Code Conventions, Riot API Routing, and Hard Rules are unchanged.
+- Moved the Debugging section and the Pipeline Operations section — plus the post-ingestion DuckDB checklist from Verification — into two on-demand skills, `debug-pipeline` and `pipeline-ops`. Content was moved verbatim; nothing was reworded or dropped.
+- Added a Hard Rule that `src/models.py::FEATURE_COLS` is canonical. The rule already existed in `AGENTS.md` and in this file's Direction section, but not in the only file Claude Code loads automatically.
+- `AGENTS.md` lint command corrected from `ruff check src tests` to `ruff check src tests dashboard scripts`; the narrow form silently skipped `dashboard/app.py`, `scripts/build_deploy_db.py`, `scripts/fetch_champion_icons.py`, and `scripts/fetch_minimap.py`. Added the missing `smoke` and `dashboard` workflow targets to the same block.
+- `GAME_MECHANICS.md` header corrected: it claimed the file "is not auto-loaded by AGENTS.md", but `AGENTS.md` never referenced it and is not itself auto-loaded. It now states that only `.claude/CLAUDE.md` loads automatically and that it names this file as authoritative.
+- `.claude/COLLAB.md` and this file's authoritative-file map now list `.claude/skills/` as the home for runnable procedures.
+
+Verification results:
+- `.\.venv\Scripts\ruff.exe check src tests dashboard scripts` passed, and the narrow `src tests` form was confirmed to cover 4 fewer Python files.
+- Both lint forms pass today; the correction prevents future drift, it did not fix an outstanding violation.
+- No pipeline stage, no `pytest` run, and no DuckDB query were executed this session. All counts in Current Project Snapshot remain those of the 2026-07-18 refresh and were not re-verified.
+
+Generated-data effects:
+- None. No raw files, databases, or model artifacts were read, written, or regenerated.
+
+Open items:
+- All prior open items stand unchanged, including the uncommitted `data/lol_deploy.duckdb`, the untracked `models/cluster_centroids.json`, and the dated screenshots.
+- `.claude/skills/` is new and untracked; include it in the next commit alongside the `.claude/CLAUDE.md` edit, or the two skills will not exist for other clones.
+- The skills load on demand rather than every session. If pipeline or triage guidance starts getting missed in practice, the fix is to sharpen the `description` frontmatter, not to inline the content back into `CLAUDE.md`.
+
+### 2026-07-19 - Correct centroid-guard description in the 2026-07-18 entry
+
+Summary: the 2026-07-18 entry describes src/models.py's centroid-binding
+guard as aligning/remapping K-Means IDs and rejecting non-bijective
+mappings. Neither is accurate. The guard was briefly modified to do this
+without authorization, then reverted. The current, correct guard refuses
+to persist a retrain whenever any cluster's centroid is no longer
+closest to its own previously-named centroid — including a clean
+bijective permutation — and performs no bijection test and no
+remapping. This entry does not change the 2026-07-18 entry's text;
+it corrects the record alongside it.
+
+Changes made:
+- None. This is a documentation-accuracy correction only.
+
+Verification run:
+- Read the current src/models.py directly; confirmed no remapping path
+  exists and the guard's comparison is per-cluster nearest-match only,
+  not a bijection check.
+
+Generated-data effects:
+- None.
+
+Open items:
+- The 2026-07-18 entry's "Behavior changed" and final "Open items" bullet
+  describing bijection rejection remain factually incorrect in place;
+  this correction should be read alongside it.
+- Whether the 594/396-row refresh and its detected permutation
+  (0→3, 1→2, 2→0, 3→1) should be reviewed and accepted as a legitimate
+  relabeling is still an open decision, not resolved by this correction.
+
+### 2026-07-18 - Data refresh, stable cluster IDs, and docs sync
+
+Files changed:
+- `src/models.py`
+- `tests/test_models.py`
+- `data/lol_deploy.duckdb`
+- `README.md`
+- `.claude/CONTEXT.md`
+- `.claude/SESSIONS.md`
+- `GAME_MECHANICS.md`
+
+Behavior changed:
+- Collected 52 new Riot matches, then rebuilt the source database and Season 16 mid feature matrix.
+- K-Means raw IDs now map back to the tracked named centroids before persistence. A unique permutation is accepted; an ambiguous many-to-one mapping still warns and refuses to overwrite labels or artifacts.
+- Rebuilt the sanitized deployment database from the verified 396-game mid-only dataset.
+- Synchronized current-state docs and stopped embedding the dated dashboard screenshots until they can be recaptured.
+
+Verification results:
+- `.\scripts\workflow.ps1 refresh` completed collection, processing, and features, then initially stopped at the prior cluster-ID guard after detecting the pure raw-ID permutation `0→3, 1→2, 2→0, 3→1`.
+- `.\scripts\workflow.ps1 models` passed after the binding fix: 396 labels, stable cluster sizes 188 / 73 / 128 / 7, silhouette 0.227.
+- Source integrity passed: 594 matched detail/timeline file pairs; 594 match rows; 17,566 timeline rows; 4,743 reported/stored deaths; 396 feature rows with zero NULLs; zero unlabeled features; zero persisted-model prediction mismatches.
+- `.\scripts\workflow.ps1 deploy-db` passed: 396 matches, 11,795 timelines, 3,117 deaths, 84 roam windows, 396 feature rows, and 396 labels.
+- Deploy audit passed: no `puuid` column, zero original Riot match-ID overlap, zero orphan feature/label rows, and zero feature NULL rows.
+- `.\scripts\workflow.ps1 test` passed: 75 tests.
+- `.\.venv\Scripts\python.exe -m ruff check src tests dashboard scripts` passed.
+- Streamlit AppTest rendered Overview, Champions, and Patterns with zero exceptions.
+
+Generated-data effects:
+- `data/raw/`, `data/lol.duckdb`, `models/kmeans.pkl`, and `models/scaler.pkl` were refreshed locally.
+- `data/lol_deploy.duckdb` was regenerated and remains uncommitted.
+
+Open items:
+- Commit/push is still required to update the public Streamlit app; the live URL was not re-verified.
+- `models/cluster_centroids.json` remains untracked and must be added with the binding code; `models/kmeans.pkl` and `models/scaler.pkl` remain correctly ignored.
+- The three dated dashboard screenshot files were not recaptured because the in-app browser was unavailable; their README embeds were removed.
+- The centroid guard retains its prior lack of an absolute-distance cutoff; it rejects non-bijective mappings, and no unreviewed threshold was invented in this refresh.
 
 ### 2026-07-07 - Hardcode deploy feature matrix columns
 

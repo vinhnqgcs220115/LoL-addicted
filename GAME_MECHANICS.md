@@ -5,8 +5,10 @@ engineering and data interpretation in this project. Read it before modifying
 any function that detects, classifies, or scores in-game behavior — `roam_timing()`,
 `death_context()`, `is_throw_game()`, or any new wave-state-aware feature.
 
-This file is not auto-loaded by AGENTS.md. Reference it explicitly in any prompt
-touching roam detection, wave-state logic, or objective-timing features.
+This file is not auto-loaded into any agent session — only `.claude/CLAUDE.md`
+loads automatically, and it names this file as authoritative rather than
+inlining it. Reference this file explicitly in any prompt touching roam
+detection, wave-state logic, or objective-timing features.
 
 Where this file conflicts with an assumption baked into existing code, this file
 is correct and the code should be revisited.
@@ -323,6 +325,4 @@ Dashboard-facing labels must stay proxy-aware. In this repo today:
 ## 7. Open Items — Not Yet Verified
 
 - Advanced wave-pulling and freeze-setup techniques (flagged for future detail)
-- Rename or qualify dashboard proxy labels: Throw, Comeback, Overextension,
-  Deficit Fight, and Post-Laning Throw.
 - Parse assist and objective events before treating roam success as true impact.

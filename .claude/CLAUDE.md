@@ -2,13 +2,9 @@
 
 Personal DS portfolio project — analyzing ranked LoL performance via the official Riot Games API. Single-summoner scope, no real-time in-game interaction. End product: a live Streamlit dashboard deployed on Streamlit Cloud.
 
-## Architecture
-
-Current data flow moves in one direction. `collector.py` fetches from Riot and persists raw JSON to `data/raw/`. `processor.py` parses those files into DuckDB. `features.py` builds the feature matrix from DuckDB tables. `models.py` trains and serializes. `dashboard/app.py` renders the dashboard — importing from `src/` and keeping feature/business logic out of the UI layer. Notebooks are sandboxed exploration and are never imported by `src/`.
-
 ## Module Contracts
 
-Each module owns exactly one layer. Never reach across.
+Each module owns exactly one layer. Never reach across. Notebooks are sandboxed exploration and are never imported by `src/`.
 
 | Module | Owns | Never |
 |---|---|---|
@@ -47,6 +43,7 @@ Free dev key expires every 24h — must regenerate at `developer.riotgames.com`.
 - No Riot API calls outside `collector.py`
 - No writes to `data/raw/` after initial save
 - No feature/business logic inside `dashboard/app.py`; UI queries, caching, and rendering only
+- No deriving model features from DataFrame columns; `src/models.py::FEATURE_COLS` is the canonical list
 - No hard-coded semantic meaning for numeric cluster IDs; derive feature means from `feature_matrix` joined to `cluster_labels`
 - No user-facing proxy label may be presented as gameplay ground truth; qualify it or rename it
 - No dashboard dependency on gitignored `models/*.pkl`; those artifacts are local training outputs only
@@ -54,73 +51,28 @@ Free dev key expires every 24h — must regenerate at `developer.riotgames.com`.
 
 ## Preferred Libraries
 
-| Purpose | Library |
-|---|---|
-| Data wrangling | `pandas`, `duckdb` |
-| ML | `scikit-learn`, `joblib` |
-| Charts | `plotly` (dashboard), `seaborn` (notebooks only) |
-| Dashboard | `streamlit` |
-| Linting | `ruff` |
+Charts: `plotly` in the dashboard, `seaborn` in notebooks only. Linting: `ruff`. Everything else is pinned in `requirements.txt`.
 
 ## Verification
 
 Before writing any collection code, test the target endpoint in Postman or curl first. Inspect the actual response shape — Riot docs occasionally omit fields or nest things unexpectedly. Set `X-Riot-Token` as a Postman environment variable, not inline.
 
-For unit tests, use `pytest`. Mirror `src/` structure under `tests/` (`tests/test_collector.py`, `tests/test_processor.py`, etc.). Test parsing logic against fixture files: save one real API response per endpoint to `tests/fixtures/` and load it in tests. Never call the real API in unit tests — mock with `unittest.mock.patch`. Always cover edge cases: zero deaths in KDA, a match where the timeline is missing a minute, an empty match ID list.
+For unit tests, use `pytest`. Test parsing logic against fixture files: save one real API response per endpoint to `tests/fixtures/` and load it in tests. Never call the real API in unit tests — mock with `unittest.mock.patch`. Always cover edge cases: zero deaths in KDA, a match where the timeline is missing a minute, an empty match ID list.
 
-After every ingestion run, verify DuckDB before moving forward. The minimum checks:
-
-- Row count matches how many files are in `data/raw/`
-- No NULL values in `win`, `match_id`, or `champion_name`
-- `MIN` and `MAX` of `game_datetime` fall within an expected range
-- `match_timelines` row count is roughly `matches count × average game duration in minutes`
-- Feature and cluster-label counts match the current Season 16 mid-lane population
-- A grouped `feature_matrix`/`cluster_labels` query returns exactly one row per cluster
-
-If all pass, mark the task done in `CONTEXT.md` and move on.
-
-## Debugging
-
-Work layer by layer from the earliest point in the data flow. Don't jump to assumptions.
-
-**First: is the raw file there?** Check `data/raw/{match_id}.json`. If it exists, the API call succeeded — the problem is in `processor.py` or later. If it doesn't, the problem is in `collector.py` or the key.
-
-**Second: what does the raw JSON actually say?** Open one file manually before touching any code. Riot responses nest participant data inside `info.participants[]` — a field you expect might be two levels deeper than assumed or named differently than the docs show.
-
-**Third: isolate in a notebook.** Load the raw file, run the suspect function step by step. Far faster than adding print statements and re-running the full pipeline.
-
-Common failure patterns:
-
-| Symptom | Likely cause |
-|---|---|
-| HTTP 401 or 403 | API key rejected or expired — regenerate at `developer.riotgames.com` |
-| HTTP 404 on match-v5 | Wrong routing host — must be `sea.api.riotgames.com` |
-| Empty match ID list | Wrong PUUID, or no ranked games in the requested time window |
-| NULL values in feature matrix | Field missing from raw JSON, or timeline lacks that exact minute |
-| Streamlit shows stale data | `@st.cache_data` is holding old results — call `.clear()` or restart the server |
-| DuckDB "column not found" | Schema in `init_schema()` is out of sync with what `processor.py` inserts |
-| Tilt index looks wrong | Missing `.shift(1)` — current game result is leaking into its own feature |
-
-If stuck after going through all three steps, log the issue in `CONTEXT.md` under Known Issues with what was already tried, and move to a different task. Return with fresh context.
+After every ingestion run, verify DuckDB before moving forward — the checklist lives in the `pipeline-ops` skill.
 
 ## Testing Strategy
 
 Three levels, each with a clear scope:
 
-**Unit tests** (`tests/`) — test one function in isolation with mocked dependencies. Every parsing function in `processor.py` and every feature calculation in `features.py` needs a unit test. Run with `pytest tests/`.
+**Unit tests** (`tests/`) — every parsing function in `processor.py` and every feature calculation in `features.py` needs a unit test.
 
-**Manual integration checks** — run the full pipeline on a small batch (10 matches) and verify DuckDB output with the queries listed in Verification above. Not automated; run this after any change to `collector.py` or `processor.py`.
+**Manual integration checks** — run the full pipeline on a small batch (10 matches) and verify DuckDB output with the checklist in the `pipeline-ops` skill. Not automated; run this after any change to `collector.py` or `processor.py`.
 
 **Notebook smoke tests** — before committing a finished notebook, restart the kernel and run all cells top to bottom. A notebook that only works with leftover kernel state is broken.
 
 No end-to-end test against the real Riot API in CI — the free key expires every 24h, making automated tests impractical. Unit tests with fixtures are sufficient.
 
-## Pipeline Operations
+## Skills
 
-**Adding new matches** — re-run `collector.py`. It skips files that already exist in `data/raw/`, so it is safe to run repeatedly.
-
-**Reprocessing from scratch** — run `.\scripts\workflow.ps1 rebuild`. It recreates `data/lol.duckdb` from raw files, then rebuilds features and models. Raw files are untouched; no API calls are made.
-
-**Adding a new field from the API** — verify the field exists in an actual raw JSON file before touching any code. Then add parsing in `processor.py`, update the schema in `init_schema()`, and run the rebuild workflow. Never edit files in `data/raw/`.
-
-**Deployment snapshot** — after tests and DuckDB verification pass, run `.\scripts\workflow.ps1 deploy-db`. The dashboard reads `data/lol_deploy.duckdb` read-only. Review public-data exposure before committing the snapshot.
+Pipeline runs, DuckDB verification, and the deployment snapshot live in the `pipeline-ops` skill. Layer-by-layer failure triage lives in the `debug-pipeline` skill.
