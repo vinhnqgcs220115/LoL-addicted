@@ -12,6 +12,7 @@ TABLES = (
     "matches",
     "match_timelines",
     "match_deaths",
+    "match_events",
     "roam_windows",
     "feature_matrix",
     "cluster_labels",
@@ -175,9 +176,18 @@ def build_deploy_db() -> dict[str, int]:
                     gold INTEGER NOT NULL,
                     cs INTEGER NOT NULL,
                     xp INTEGER NOT NULL,
+                    level INTEGER,
                     kills INTEGER NOT NULL,
                     position_x INTEGER,
                     position_y INTEGER,
+                    opp_gold INTEGER,
+                    opp_cs INTEGER,
+                    opp_xp INTEGER,
+                    opp_level INTEGER,
+                    opp_position_x INTEGER,
+                    opp_position_y INTEGER,
+                    team_gold INTEGER,
+                    enemy_team_gold INTEGER,
                     PRIMARY KEY (match_id, timestamp_min)
                 )
             """)
@@ -189,9 +199,18 @@ def build_deploy_db() -> dict[str, int]:
                     t.gold,
                     t.cs,
                     t.xp,
+                    t.level,
                     t.kills,
                     t.position_x,
-                    t.position_y
+                    t.position_y,
+                    t.opp_gold,
+                    t.opp_cs,
+                    t.opp_xp,
+                    t.opp_level,
+                    t.opp_position_x,
+                    t.opp_position_y,
+                    t.team_gold,
+                    t.enemy_team_gold
                 FROM source.match_timelines t
                 JOIN id_map ids ON ids.original_match_id = t.match_id
             """)
@@ -204,6 +223,12 @@ def build_deploy_db() -> dict[str, int]:
                     timestamp_min INTEGER NOT NULL,
                     gold_at_death INTEGER,
                     cs_at_death INTEGER,
+                    xp_at_death INTEGER,
+                    position_x INTEGER,
+                    position_y INTEGER,
+                    killer_champion VARCHAR,
+                    assist_count INTEGER,
+                    opp_gold_at_death INTEGER,
                     PRIMARY KEY (match_id, death_number)
                 )
             """)
@@ -215,9 +240,49 @@ def build_deploy_db() -> dict[str, int]:
                     d.timestamp_ms,
                     d.timestamp_min,
                     d.gold_at_death,
-                    d.cs_at_death
+                    d.cs_at_death,
+                    d.xp_at_death,
+                    d.position_x,
+                    d.position_y,
+                    d.killer_champion,
+                    d.assist_count,
+                    d.opp_gold_at_death
                 FROM source.match_deaths d
                 JOIN id_map ids ON ids.original_match_id = d.match_id
+            """)
+
+            conn.execute("""
+                CREATE TABLE match_events (
+                    match_id VARCHAR NOT NULL,
+                    event_number INTEGER NOT NULL,
+                    timestamp_ms INTEGER NOT NULL,
+                    timestamp_min INTEGER NOT NULL,
+                    event_type VARCHAR NOT NULL,
+                    position_x INTEGER,
+                    position_y INTEGER,
+                    player_involvement VARCHAR,
+                    is_player_team BOOLEAN,
+                    detail VARCHAR,
+                    PRIMARY KEY (match_id, event_number)
+                )
+            """)
+            conn.execute("""
+                INSERT INTO match_events
+                SELECT
+                    ids.surrogate_match_id,
+                    e.event_number,
+                    e.timestamp_ms,
+                    e.timestamp_min,
+                    e.event_type,
+                    e.position_x,
+                    e.position_y,
+                    e.player_involvement,
+                    e.is_player_team,
+                    e.detail
+                FROM source.match_events e
+                JOIN id_map ids ON ids.original_match_id = e.match_id
+                WHERE e.player_involvement IS NOT NULL
+                   OR e.event_type IN ('ELITE_MONSTER_KILL', 'BUILDING_KILL')
             """)
 
             conn.execute("""

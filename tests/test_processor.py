@@ -126,26 +126,24 @@ def test_extract_timeline_rows_uses_participant_id(
     rows = processor.extract_timeline_rows(sample_match, sample_timeline, SAMPLE_PUUID)
 
     assert len(rows) == 26
-    assert rows[0] == {
-        "match_id": SAMPLE_MATCH_ID,
-        "timestamp_min": 0,
-        "gold": 500,
-        "cs": 0,
-        "xp": 0,
-        "kills": 0,
-        "position_x": 14321,
-        "position_y": 14673,
-    }
-    assert rows[-1] == {
-        "match_id": SAMPLE_MATCH_ID,
-        "timestamp_min": 25,
-        "gold": 10976,
-        "cs": 221,
-        "xp": 13381,
-        "kills": 5,
-        "position_x": 14096,
-        "position_y": 13008,
-    }
+
+    first, last = rows[0], rows[-1]
+    assert first["match_id"] == SAMPLE_MATCH_ID
+    assert first["timestamp_min"] == 0
+    assert (first["gold"], first["cs"], first["xp"], first["kills"]) == (500, 0, 0, 0)
+    assert (first["position_x"], first["position_y"]) == (14321, 14673)
+
+    assert last["timestamp_min"] == 25
+    assert (last["gold"], last["cs"], last["xp"], last["kills"]) == (10976, 221, 13381, 5)
+    assert (last["position_x"], last["position_y"]) == (14096, 13008)
+
+    # Every row now carries the lane opponent and both team totals, which is what
+    # makes a deficit measurable against the actual opponent.
+    assert set(rows[0]) == set(processor.TIMELINE_COLUMNS)
+    assert all(row["opp_gold"] is not None for row in rows)
+    assert all(row["team_gold"] > 0 and row["enemy_team_gold"] > 0 for row in rows)
+    # Own and opponent gold are distinct series, not the same column twice.
+    assert any(row["gold"] != row["opp_gold"] for row in rows)
 
 
 def test_extract_timeline_rows_tolerates_missing_minute_frames(
@@ -386,3 +384,53 @@ def test_extract_death_rows_missing_snapshot() -> None:
     assert len(rows) == 1
     assert rows[0]["gold_at_death"] is None
     assert rows[0]["cs_at_death"] is None
+
+
+def test_extract_death_rows_keeps_position_killer_and_assists(
+    sample_match: dict[str, object], sample_timeline: dict[str, object]
+) -> None:
+    """The kill event carries where, by whom, and with how much help."""
+    rows = processor.extract_death_rows(sample_match, sample_timeline, SAMPLE_PUUID)
+
+    assert rows, "fixture has at least one death"
+    assert all(set(row) == set(processor.DEATH_COLUMNS) for row in rows)
+    assert all(row["position_x"] is not None for row in rows)
+
+    first = rows[0]
+    assert first["killer_champion"] == "Vi"
+    assert first["assist_count"] == 1
+    # Opponent gold at the same minute is what makes "deficit" mean anything.
+    assert first["opp_gold_at_death"] == 851
+
+    # The killer separates a jungle gank from a lane death, which is the whole
+    # point of keeping it: the fixture player dies to Vi and to their own laner.
+    killers = [row["killer_champion"] for row in rows]
+    assert "Vi" in killers
+    assert "Leblanc" in killers, "the lane opponent should be distinguishable"
+
+
+def test_extract_event_rows_scopes_ward_events_to_the_player(
+    sample_match: dict[str, object], sample_timeline: dict[str, object]
+) -> None:
+    """Objective and kill events are kept for both teams; wards only for us."""
+    rows = processor.extract_event_rows(sample_match, sample_timeline, SAMPLE_PUUID)
+
+    assert rows
+    assert all(set(row) == set(processor.EVENT_COLUMNS) for row in rows)
+
+    kinds = {row["event_type"] for row in rows}
+    assert processor.TEAM_EVENT_TYPES <= kinds
+
+    # Every retained ward event belongs to the player.
+    wards = [r for r in rows if r["event_type"] in processor.PLAYER_ONLY_EVENT_TYPES]
+    assert wards
+    assert all(row["player_involvement"] == "actor" for row in wards)
+
+    # Objectives record which side took them.
+    monsters = [r for r in rows if r["event_type"] == "ELITE_MONSTER_KILL"]
+    assert monsters
+    assert all(row["detail"] for row in monsters)
+    assert any(row["is_player_team"] for row in monsters)
+
+    # event_number is dense and ordered, so it works as a stable key.
+    assert [row["event_number"] for row in rows] == list(range(1, len(rows) + 1))

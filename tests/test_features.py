@@ -69,7 +69,10 @@ def _make_conn() -> duckdb.DuckDBPyConnection:
             gold = 500 + minute * 250
             cs = minute * 8
             conn.execute("""
-                INSERT INTO match_timelines VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO match_timelines
+                    (match_id, timestamp_min, gold, cs, xp, kills,
+                     position_x, position_y)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, [match_id, minute, gold, cs, minute * 100, 0, 7500 + minute * 10, 7500 + minute * 10])
 
     # --- Deaths for S16_A: 4 deaths, deaths 2/3/4 are consecutive (tilt spiral) ---
@@ -77,22 +80,22 @@ def _make_conn() -> duckdb.DuckDBPyConnection:
     # death 2: minute 7 (gap 2 → tilt spiral)
     # death 3: minute 9 (gap 2 → tilt spiral)
     # death 4: minute 11 (gap 2 → tilt spiral)
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_A', 1, 300000, 5, 2750, 40)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_A', 2, 420000, 7, 3250, 56)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_A', 3, 540000, 9, 3750, 72)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_A', 4, 660000, 11, 4250, 88)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_A', 1, 300000, 5, 2750, 40)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_A', 2, 420000, 7, 3250, 56)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_A', 3, 540000, 9, 3750, 72)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_A', 4, 660000, 11, 4250, 88)")
 
     # --- Deaths for S16_B: 5 deaths, deaths 4/5 are consecutive ---
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_B', 1, 180000, 3, 2000, 24)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_B', 2, 480000, 8, 3500, 64)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_B', 3, 720000, 12, 4500, 96)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_B', 4, 840000, 14, 5000, 112)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_B', 5, 900000, 15, 5250, 120)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_B', 1, 180000, 3, 2000, 24)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_B', 2, 480000, 8, 3500, 64)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_B', 3, 720000, 12, 4500, 96)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_B', 4, 840000, 14, 5000, 112)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_B', 5, 900000, 15, 5250, 120)")
 
     # S16_C: no deaths — tests zero-death handling
     # S16_D: 2 deaths far apart — no tilt spiral
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_D', 1, 180000, 3, 2000, 24)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_D', 2, 900000, 15, 5000, 120)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_D', 1, 180000, 3, 2000, 24)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_D', 2, 900000, 15, 5000, 120)")
 
     return conn
 
@@ -208,7 +211,10 @@ def test_roam_timing_uses_cs_drop_when_position_missing() -> None:
     """, [S16_DATETIME_D])
     for minute in range(21):
         conn.execute("""
-            INSERT INTO match_timelines VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO match_timelines
+                    (match_id, timestamp_min, gold, cs, xp, kills,
+                     position_x, position_y)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, [
             "S16_E",
             minute,
@@ -293,7 +299,7 @@ def test_no_nan_in_feature_matrix() -> None:
 
 def test_death_context_excludes_s15_deaths() -> None:
     conn = _make_conn()
-    conn.execute("INSERT INTO match_deaths VALUES ('S15_MATCH', 1, 300000, 5, 2750, 40)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S15_MATCH', 1, 300000, 5, 2750, 40)")
     result = death_context(conn)
     conn.close()
 

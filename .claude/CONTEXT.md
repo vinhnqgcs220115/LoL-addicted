@@ -21,7 +21,7 @@ Verified 2026-08-12 by querying committed artifacts and running the suite in thi
 | Deploy DB cluster labels | 396 | same |
 | Deploy DB cluster sizes | 188 / 73 / 128 / 7 | same |
 | Deploy DB match date range | 2026-01-10 to 2026-07-18 | same |
-| Tests | 75 passed | `pytest tests -q` |
+| Tests | 93 passed | `pytest tests -q` |
 | Lint | clean | `ruff check src tests dashboard scripts` |
 | `models/cluster_centroids.json` | tracked | `git ls-files` |
 | `data/lol_deploy.duckdb` | tracked, committed at `e4b8f07` | `git log` |
@@ -33,8 +33,14 @@ Local-only, gitignored, verified 2026-08-12 on this machine but not reproducible
 |---|---|
 | `data/raw/` files | 1,188 (594 detail + 594 timeline) |
 | Source DB matches / timelines / deaths | 594 / 17,566 / 4,743 |
-| Source DB feature rows / labels | 396 / 396 |
+| Source DB events | 99,342 (new, from the reparse) |
+| Source DB feature rows | 396 |
+| Source DB cluster labels | **absent** — the centroid guard blocked the retrain, see stage 0 below |
 | Source DB match date range | 2025-09-11 to 2026-07-18 |
+| Opponent timeline coverage, S16 mid | 11,795 rows, 0 NULL opponent gold |
+| Death context coverage | 4,743 deaths, 0 NULL position, 5 NULL killer (executions and turrets) |
+
+The deploy-DB rows in the table above describe the **committed** snapshot, which predates the reparse and is unchanged. The source database has been rebuilt; the snapshot has not.
 
 Not verified since 2026-07-18 — treat as stale until re-run:
 
@@ -78,13 +84,24 @@ Pages that exist today: Overview, Champions, Matchups, Patterns. `PRODUCT.md` se
 - Pocket-pick detection done — `pocket_picks()` labels champions outside the core pool that beat the baseline, using the four labels fixed in `PRODUCT.md` section 6. "Rarely played" is derived from the player's own usage rather than a game count: the core pool is the smallest set of champions covering half of all games, currently Zoe, Hwei, Viktor, Ahri, and Syndra. Measured 2026-08-12: zero Potential Pocket Picks, zero Matchup-specific, three Emerging Picks (Mel 10/18, Aurora 8/13, Galio 7/11), and seven Insufficient Data including five champions with a single game at 100%. Those five are exactly the outliers section 6 forbids promoting, and the label vocabulary is what keeps them from becoming recommendations.
 - Overview rebuilt around "How am I doing, and what should I investigate?" — current form, streak, strongest and weakest champions, pool composition, high-confidence insights only.
 
-### Stage 0 — the reparse. No Riot API calls. Blocks every P2 item.
+### Stage 0 — the reparse. Done 2026-08-12, except the deploy snapshot.
 
-Pulled ahead of the P2 UI work per `PRODUCT.md` section 11: do not redesign around a limitation that can cheaply be removed from the pipeline.
+D1 and D2 are both implemented and the source database has been rebuilt from the immutable raw files. No Riot API calls were made.
 
-- D1 — store all ten `participantFrames` per timeline frame instead of one. Verified 2026-08-12 against `tests/fixtures/sample_match_timeline.json`: every frame carries all ten participants with `totalGold`, `xp`, `minionsKilled`, `level`, and `position`. Unlocks CS, XP, gold, and level differentials over time plus lane-state transitions, and retires every self-referential baseline in the project.
-- D2 — parse the timeline event stream. One representative match carries 61 `CHAMPION_KILL` (with `position`, `killerId`, `assistingParticipantIds`), 126 `WARD_PLACED`, 60 `TURRET_PLATE_DESTROYED`, 15 `BUILDING_KILL`, 9 `ELITE_MONSTER_KILL`. `extract_death_rows()` reads the kill event and keeps only its timestamp.
-- Cost for D1 and D2 together: `processor.py` parsing, schema change, `_assert_table_columns` update, new fixtures and tests, full `rebuild`, `FEATURE_MATRIX_COLUMNS` update in `build_deploy_db.py` (raises on drift by design), re-verified deploy snapshot. No collection, no key, no rate limit.
+- D1 done — `match_timelines` now carries the lane opponent's gold, CS, XP, level, and position, the player's own level, and both team gold totals. Verified on the rebuilt source DB: 11,795 Season 16 mid rows with **zero** NULL opponent gold and zero NULL level.
+- D2 done — `match_deaths` gained position, killer champion, assist count, XP at death, and the opponent's gold at that minute. New `match_events` table holds champion kills, turret plates, buildings, and elite monsters for both teams, plus the player's own ward events. Verified: 4,743 deaths with zero NULL positions and 5 NULL killers (executions and turret kills, which have no champion); 99,342 events.
+- `build_deploy_db.py` publishes the new columns and a filtered slice of `match_events` — rows with player involvement, plus objectives. The unfiltered table is roughly 100,000 rows and the committed snapshot should not carry what nothing reads.
+- `tests/test_build_deploy_db.py` no longer restates the source schema by hand; it calls `processor.init_schema`. The hand-copied copy is what silently drifted when the timeline gained columns.
+
+**What the opponent data shows, measured 2026-08-12 on the rebuilt source DB.** At minute 14 in Season 16 mid games: won games average **+269 gold and +11.0 CS** against the lane opponent; lost games average **-401 gold and +2.9 CS**. A 670-gold swing that the previous self-referential baseline could not see. CS differential stays positive in both, so the lane is not where the gold is lost.
+
+**Blocked: the deployment snapshot has not been regenerated.** `src/models.py` refused to persist labels because the retrain produced the permutation `0 → 3, 1 → 2, 2 → 0, 3 → 1`. Cluster sizes are 7 / 128 / 188 / 73 against the previous 188 / 73 / 128 / 7 and silhouette is unchanged at 0.227, so the clustering solution is identical and only the numeric IDs moved. The guard rejects a clean permutation by design and performs no remapping.
+
+This is the same permutation recorded on 2026-07-18 and left open on 2026-07-19; it is a user decision and was not overridden. Consequences while it stands:
+
+- The rebuilt `data/lol.duckdb` has no `cluster_labels` table, so `deploy-db` cannot run.
+- The committed `data/lol_deploy.duckdb` is unchanged and still carries the pre-reparse schema and data, so the live dashboard keeps working on the old snapshot. Nothing is broken; the new opponent data simply has not reached the UI.
+- Resolving it means either accepting the relabeling and updating the centroid snapshot and `CLUSTER_NAMES`, or settling M1 first and retiring the clusters. M1 is the deeper question, since the clusters restate death count.
 
 ### P2 — advanced analysis. Blocked by stage 0.
 
