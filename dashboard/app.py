@@ -295,7 +295,7 @@ def _reading(row, baseline: float, eligible: bool = True) -> str:
     return "Too few games to project a direction from."
 
 
-def _pool_rows(pool: pd.DataFrame, baseline: float) -> str:
+def _pool_rows(pool: pd.DataFrame) -> str:
     """Per-champion performance, richest first."""
     rows = []
     for row in pool.itertuples(index=False):
@@ -588,6 +588,7 @@ st.sidebar.caption(
 )
 champions = sorted(matchups["champion_name"].dropna().unique().tolist())
 st.sidebar.markdown("**Champion**")
+st.sidebar.caption("Filters the Champions and Matchups tabs only.")
 champion_filter, selected_icon = st.sidebar.columns([5, 1])
 selected_champion = champion_filter.selectbox(
     "Champion",
@@ -732,7 +733,7 @@ with champions_tab:
         pool_view = pool
         if selected_champion != "All Champions":
             pool_view = pool[pool["champion_name"] == selected_champion]
-        st.html(_pool_rows(pool_view, baseline))
+        st.html(_pool_rows(pool_view))
 
 with matchups_tab:
     st.header("Matchups")
