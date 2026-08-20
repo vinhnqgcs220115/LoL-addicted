@@ -6,10 +6,12 @@ from src import processor
 from src.features import (
     build_feature_matrix,
     champion_matchup_stats,
+    classify_winrate,
     death_context,
     is_throw_game,
     roam_timing,
     tilt_index,
+    wilson_interval,
 )
 
 S15_DATETIME = "2025-12-15T12:00:00+00:00"  # before CURRENT_SEASON_START
@@ -297,3 +299,34 @@ def test_avg_cs_sacrifice_is_log_transformed() -> None:
     assert fm["avg_cs_sacrifice"].min() >= 0
     assert fm["avg_cs_sacrifice"].max() < 5   # log1p(61.4) ≈ 4.12; raw 61.4 would fail this
     assert fm["avg_cs_sacrifice"].isna().sum() == 0
+
+
+def test_wilson_interval_widens_as_samples_shrink() -> None:
+    """A small sample must not produce a narrow, confident-looking interval."""
+    low_small, high_small = wilson_interval(2, 2)
+    low_large, high_large = wilson_interval(60, 100)
+
+    assert (high_small - low_small) > (high_large - low_large)
+    # 2/2 cannot exclude the baseline; 60/100 can.
+    assert low_small < 0.5 < high_small
+    assert low_large > 0.5
+
+    # Degenerate input stays maximally uninformative rather than raising.
+    assert wilson_interval(0, 0) == (0.0, 1.0)
+    # Bounds never escape [0, 1] even at the extremes.
+    for wins, games in [(0, 8), (8, 8), (1, 3)]:
+        low, high = wilson_interval(wins, games)
+        assert 0.0 <= low <= high <= 1.0
+
+
+def test_classify_winrate_uses_baseline_not_coin_flip() -> None:
+    """A verdict is measured against the player's own baseline, not 50%."""
+    baseline = 0.60
+
+    # Beats a coin flip but not this player's baseline -> not Positive.
+    assert classify_winrate(0.52, 0.58, baseline) == "Negative"
+    assert classify_winrate(0.62, 0.80, baseline) == "Positive"
+    # An interval spanning the baseline is never a verdict.
+    assert classify_winrate(0.30, 0.90, baseline) == "Uncertain"
+    # Skill-based needs a user-supplied effect size and must not be invented.
+    assert classify_winrate(0.59, 0.61, baseline) == "Uncertain"

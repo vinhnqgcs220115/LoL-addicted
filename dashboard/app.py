@@ -16,7 +16,9 @@ from src.features import (  # noqa: E402
     ANALYSIS_ROLE,
     CURRENT_SEASON_START,
     champion_matchup_stats,
+    champion_winrates,
     death_context,
+    personal_baseline,
 )
 from src.models import (  # noqa: E402
     FEATURE_COLS,
@@ -44,7 +46,7 @@ CLUSTER_CARD_STATS: dict[str, tuple[tuple[str, str, bool], ...]] = {
     ),
     "Ahead but Overextending": (
         ("gold_delta", "Gold delta vs personal baseline", True),
-        ("deaths_while_ahead", "Deaths while ahead", True),
+        ("deaths_while_ahead", "Deaths above own gold curve", True),
     ),
     "Clean Games": (
         ("total_deaths", "Total deaths", False),
@@ -57,23 +59,28 @@ CHAMPION_ICON_DIR = BASE_DIR / "assets" / "champion_icons"
 CHAMPION_ICONS = {
     path.stem: path for path in CHAMPION_ICON_DIR.glob("*.png") if path.is_file()
 }
-WIN_RATE_CLEAR_MAJORITY = 0.55
-WIN_RATE_CLEAR_MINORITY = 0.45
 TIME_BUCKET_ORDER = ["morning", "afternoon", "evening", "night"]
 PROXY_LABEL_NOTE = (
-    "Proxy labels use single-player timeline data; they are not confirmed "
-    "team-state gameplay events."
+    "These labels compare you against your own season average at the same game "
+    "minute, not against the enemy laner. They describe deviation from your own "
+    "habit, not lane state. Per-minute opponent data is not parsed yet."
 )
+VERDICT_NOTE = (
+    "A win rate is called Positive or Negative only when its 95% confidence "
+    "interval clears your overall mid win rate. Everything else is Uncertain "
+    "and shown as reference, not as a finding."
+)
+CLASS_TONE = {"Positive": "majority", "Negative": "minority", "Uncertain": "neutral"}
 FEATURE_DISPLAY_NAMES = {
-    "gold_delta": "Gold delta vs personal baseline",
+    "gold_delta": "Gold at 14 vs your own average",
     "total_deaths": "Total deaths",
-    "deaths_while_ahead": "Deaths while ahead (proxy)",
-    "tilt_spiral_ratio": "Close-repeat death share (proxy)",
-    "max_death_streak": "Max close-repeat death streak (proxy)",
-    "total_roams": "Detected roams (proxy)",
-    "avg_cs_sacrifice": "Avg CS sacrifice (roam proxy)",
-    "roam_impact_rate": "Kill impact rate (roam proxy)",
-    "tilt_index": "Recent win rate (tilt proxy)",
+    "deaths_while_ahead": "Deaths above your own gold curve",
+    "tilt_spiral_ratio": "Share of deaths within 3 min of the last",
+    "max_death_streak": "Longest run of close-repeat deaths",
+    "total_roams": "Detected roams (undercounts short roams)",
+    "avg_cs_sacrifice": "Avg CS given up during detected roams",
+    "roam_impact_rate": "Roam kill rate (assists not counted)",
+    "tilt_index": "Win rate over the previous 5 games",
 }
 MATCHUP_TABLE_CSS = """
 .matchup-table-wrap {
@@ -225,17 +232,31 @@ def _champion_cell(champion_name: str) -> str:
     return f'<span class="matchup-champion">{icon}{html.escape(champion_name)}</span>'
 
 
-def _win_rate_chip(win_rate: float) -> str:
-    if win_rate >= WIN_RATE_CLEAR_MAJORITY:
-        tone = "majority"
-    elif win_rate <= WIN_RATE_CLEAR_MINORITY:
-        tone = "minority"
-    else:
-        tone = "neutral"
+def _win_rate_chip(cell: str) -> str:
+    """Render a win rate, colored only when its class is a verdict.
+
+    ``cell`` arrives as "rate|class" because a pandas formatter receives one
+    column value. The verdict itself is computed in ``src.features``; this
+    renders it and nothing more.
+    """
+    raw_rate, _, matchup_class = cell.partition("|")
+    tone = CLASS_TONE.get(matchup_class, "neutral")
     return (
         f'<span class="matchup-win-rate matchup-win-rate-{tone}">'
-        f"{win_rate:.1%}</span>"
+        f"{float(raw_rate):.1%}</span>"
     )
+
+
+def _verdict_lines(frame: pd.DataFrame, subject: str) -> list[str]:
+    """One plain sentence per grouping whose win rate clears the baseline."""
+    verdicts = frame[frame["matchup_class"] != "Uncertain"]
+    return [
+        f"**{row.name}** — you win **{row.winrate:.0%}** of {row.games} games "
+        f"{subject} it ({row.wins}W–{row.games - row.wins}L, 95% CI "
+        f"{row.winrate_lo:.0%}–{row.winrate_hi:.0%}). "
+        f"{'Above' if row.matchup_class == 'Positive' else 'Below'} your baseline."
+        for row in verdicts.itertuples(index=False)
+    ]
 
 
 def _cluster_cards(cluster_summary: pd.DataFrame) -> str:
@@ -374,6 +395,20 @@ def _query_matchups(
 
 
 @st.cache_data
+def _query_winrates(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int], dimension: str
+) -> pd.DataFrame:
+    return champion_winrates(_conn, dimension)
+
+
+@st.cache_data
+def _query_baseline(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
+) -> float:
+    return personal_baseline(_conn)
+
+
+@st.cache_data
 def _query_clusters(
     _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
 ) -> pd.DataFrame:
@@ -441,7 +476,10 @@ with overview_tab:
     avg_kda.metric("Avg KDA", f"{float(overview['avg_kda']):.2f}")
     avg_cs.metric("Avg CS/min", f"{float(overview['avg_cs_per_min']):.1f}")
 
-    st.subheader("Win Rate by Patch")
+    st.subheader("Win Rate by Patch — reference")
+    st.caption(
+        "5 to 60 games per patch. None of these differences is separable from noise; read the shape, not the ranking."
+    )
     patch_stats = _query_patch_stats(conn, db_cache_key)
     patch_figure = px.bar(
         patch_stats,
@@ -464,7 +502,8 @@ with overview_tab:
     )
     st.plotly_chart(patch_figure, use_container_width=True)
 
-    st.subheader("Performance by Time of Day")
+    st.subheader("Performance by Time of Day — reference")
+    st.caption("Same caveat as patches: too few games per bucket to rank them.")
     time_stats = _query_time_stats(conn, db_cache_key)
     count_column, rate_column = st.columns(2)
     with count_column:
@@ -487,17 +526,19 @@ with overview_tab:
         rate_figure.update_yaxes(tickformat=".0%", range=[0, 1])
         st.plotly_chart(rate_figure, use_container_width=True)
 
-    st.subheader("Estimated Throw and Comeback Summary")
+    st.subheader("Games that broke from your own pattern")
     st.caption(PROXY_LABEL_NOTE)
     throw_summary = _query_throw_summary(conn, db_cache_key).iloc[0]
     throws = int(throw_summary["throws"])
     total = int(throw_summary["total"])
     throw_count, comeback_count, throw_rate = st.columns(3)
-    throw_count.metric("Estimated Throws", f"{throws:,}")
+    throw_count.metric("Strong start, lost", f"{throws:,}")
     comeback_count.metric(
-        "Estimated Comebacks", f"{int(throw_summary['comebacks']):,}"
+        "Weak start, won", f"{int(throw_summary['comebacks']):,}"
     )
-    throw_rate.metric("Estimated Throw Rate", f"{throws / total if total else 0:.1%}")
+    throw_rate.metric(
+        "Share of games", f"{throws / total if total else 0:.1%}"
+    )
 
 with champions_tab:
     st.header("Champions")
@@ -508,13 +549,39 @@ with champions_tab:
         if selected_champion != "All Champions":
             filtered_matchups = matchups[matchups["champion_name"] == selected_champion]
 
-        matchup_table = filtered_matchups[
+        baseline = _query_baseline(conn, db_cache_key)
+        st.subheader("What your record actually supports")
+        st.caption(
+            f"Measured against your overall mid win rate of {baseline:.1%}. "
+            + VERDICT_NOTE
+        )
+        verdicts = _verdict_lines(
+            _query_winrates(conn, db_cache_key, "champion"), "on"
+        ) + _verdict_lines(
+            _query_winrates(conn, db_cache_key, "opponent"), "against"
+        )
+        if verdicts:
+            for line in verdicts:
+                st.markdown(f"- {line}")
+        else:
+            st.info(
+                "No champion or opponent yet has enough games to separate it "
+                "from your overall win rate. Not a result of 0% — a result "
+                "of too few games."
+            )
+
+        matchup_table = filtered_matchups.assign(
+            win_rate_cell=filtered_matchups["our_winrate"].map("{:.6f}".format)
+            + "|"
+            + filtered_matchups["matchup_class"],
+        )[
             [
                 "champion_name",
                 "opp_champion_name",
                 "games",
-                "our_winrate",
+                "win_rate_cell",
                 "cs_diff",
+                "gold_diff",
                 "our_avg_kda",
                 "opp_avg_kda",
             ]
@@ -523,16 +590,18 @@ with champions_tab:
                 "champion_name": "Your Champion",
                 "opp_champion_name": "Opponent",
                 "games": "Games",
-                "our_winrate": "Win Rate",
+                "win_rate_cell": "Win Rate",
                 "cs_diff": "CS Diff",
+                "gold_diff": "Gold Diff",
                 "our_avg_kda": "Your Avg KDA",
                 "opp_avg_kda": "Opponent Avg KDA",
             }
         )
-        st.subheader("Matchups")
+        st.subheader("Individual matchups — reference")
         st.caption(
-            "Win-rate chips: green at 55% or higher, red at 45% or lower, "
-            "and gray between them."
+            "Every pair below runs 2 to 9 games, and none of them clears the "
+            "bar above, so none is given a verdict. CS Diff and Gold Diff are "
+            "measured against the actual lane opponent at end of game."
         )
         matchup_html = matchup_table.to_html(
             index=False,
@@ -545,6 +614,7 @@ with champions_tab:
                 "Games": "{:,.0f}".format,
                 "Win Rate": _win_rate_chip,
                 "CS Diff": "{:.2f}".format,
+                "Gold Diff": "{:+,.0f}".format,
                 "Your Avg KDA": "{:.2f}".format,
                 "Opponent Avg KDA": "{:.2f}".format,
             },
@@ -640,7 +710,7 @@ with patterns_tab:
             f"{', '.join(missing_clusters)} excluded due to insufficient sample size per minute."
         )
 
-    st.subheader("Estimated Death Context Breakdown")
+    st.subheader("Where deaths sit against your own gold curve")
     st.caption(PROXY_LABEL_NOTE)
     deaths = _query_deaths(conn, db_cache_key)
     if deaths.empty:
@@ -648,11 +718,11 @@ with patterns_tab:
     else:
         st.caption(f"Total deaths: {len(deaths):,}")
         death_categories = {
-            "Early Death": "is_early_death",
-            "Overextension (proxy)": "is_overextension_ahead",
-            "Deficit Fight (proxy)": "is_deficit_fight",
-            "Tilt Spiral": "is_tilt_spiral",
-            "Post-Laning Throw (proxy)": "is_post_laning_throw",
+            "Died before 6 min": "is_early_death",
+            "Died above own gold curve (pre-14)": "is_overextension_ahead",
+            "Died below own gold curve (pre-14)": "is_deficit_fight",
+            "Died within 3 min of previous death": "is_tilt_spiral",
+            "Died after 14 min, strong-start game": "is_post_laning_throw",
         }
         death_counts = pd.DataFrame(
             {

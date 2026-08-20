@@ -48,12 +48,19 @@ Not verified since 2026-07-18 — treat as stale until re-run:
 
 Ordered by dependency and by the `PRODUCT.md` section 13 priority ladder. Sourced from the 2026-08-12 pipeline audit and the product specification absorbed into `PRODUCT.md` on the same date.
 
-### P0 — correctness. Blocked by nothing, no rebuild required.
+### P0 — correctness. Done 2026-08-12.
 
-- U3 — replace the invented 55% / 45% win-rate cutoff with sample-aware classification. `PRODUCT.md` section 7 sanctions Wilson intervals and requires the four-way outcome Positive / Negative / Skill-based / Uncertain plus a High / Medium / Low / Insufficient confidence band. Verified 2026-08-12 against the deploy DB: at 95% Wilson, **zero of 71** matchup pairs support a directional verdict, while the single-axis groupings do — Zoe 53/86 = 62% CI [0.51, 0.71]; opponent Sylas 17/23 = 74% CI [0.54, 0.87]; opponent Viktor 14/19 = 74% CI [0.51, 0.88]; opponent Naafiri 0/8 = 0% CI [0.00, 0.32]. Those four figures are from the 2026-07-18 snapshot and will move on the next refresh.
-- U4 — rename or remove every mislabeled proxy. "Deaths while ahead", "Overextension", "Deficit Fight" compare the player to their own season average, not to the opponent. `PRODUCT.md` section 12 requires a deficit claim to rest on opponent evidence. Cluster names `Behind & Spiraling` and `Ahead but Overextending` carry the same false semantics but are a user decision and are subject to M1 — flag, do not rename unilaterally.
-- Low-data state vocabulary. `PRODUCT.md` section 7 requires no data, insufficient data, statistically uncertain, data unavailable, and feature not implemented to be distinguishable. A rendered `0%` that means "not enough games" is a bug.
-- Quick win — `opp_gold_earned` is stored on every match row and read by nothing. Only opponent-anchored gold figure available before D1, and it yields a real end-of-game gold differential per matchup today.
+Shipped in the same session as the audit. No rebuild was required; the deploy snapshot is unchanged.
+
+- U3 done — the invented 55% / 45% cutoff is gone. `src/features.py` now carries `wilson_interval()`, `personal_baseline()`, and `classify_winrate()`, and the dashboard colors a win rate only when its 95% Wilson interval clears the player's own baseline. Measured on the current snapshot: baseline 51.3%; of 71 matchup pairs, **zero** support a verdict; of 38 champion groupings, zero; of 60 opponent groupings, two — Sylas 17/23 = 74% CI [0.54, 0.87] Positive, Naafiri 0/8 = 0% CI [0.00, 0.32] Negative. Those figures come from the 2026-07-18 snapshot and will move on the next refresh.
+- U4 done — every mislabeled proxy renamed to what it measures. "Deaths while ahead" is now "Deaths above your own gold curve"; the death-context categories name the gold-curve comparison explicitly; "Estimated Throws / Comebacks" are now "Strong start, lost" and "Weak start, won". Cluster names `Behind & Spiraling` and `Ahead but Overextending` were deliberately left alone: they carry the same false ahead/behind semantics but are a user decision and are subject to M1.
+- Low-data framing done — the Champions empty state now says "not a result of 0%, a result of too few games", and the patch and time-of-day charts are labeled reference with their sample caveat.
+- Quick win done — `opp_gold_earned` is now surfaced as a `Gold Diff` column against the actual lane opponent, alongside `CS Diff`.
+
+Still open at P0:
+
+- `Skill-based` is not emitted. Separating "reliably close to baseline" from "not enough evidence" requires a minimum interesting effect size, which `PRODUCT.md` section 12 makes a user decision. Both cases currently report as Uncertain. On the present snapshot the choice would reclassify at most 5 of 98 groupings, so nothing is blocked — but it needs a number before the dataset grows.
+- Named confidence bands (High / Medium / Low / Insufficient) are not emitted either; the interval and the game count are shown instead, which invents no cuts. `PRODUCT.md` section 7 lists the bands as an option, not a requirement.
 
 ### P1 — the product layer. Buildable from `matches` alone; not blocked by the reparse.
 

@@ -21,6 +21,127 @@ ANALYSIS_ROLE: str = "MIDDLE"
 EARLY_DEATH_THRESHOLD_MIN: int = 6    # deaths before this minute are classified as early
 TILT_SPIRAL_GAP_MIN: int = 3          # max minutes between deaths to count as a spiral
 TILT_WINDOW_GAMES: int = 5            # rolling window size for tilt index
+WILSON_Z: float = 1.96                # 95% two-sided normal quantile
+WINRATE_GROUPINGS: dict[str, str] = {
+    "champion": "champion_name",
+    "opponent": "opp_champion_name",
+}
+
+
+def wilson_interval(
+    wins: int, games: int, z: float = WILSON_Z
+) -> tuple[float, float]:
+    """Return the Wilson score interval for a win count.
+
+    Used instead of a fixed win-rate cutoff. A hardcoded threshold such as
+    "green at 55%" is an invented gameplay threshold and PRODUCT.md section 12
+    forbids one; the interval width is derived from the sample size instead, so
+    a two-game matchup cannot produce a confident verdict. Do not replace this
+    with a percentage constant.
+
+    Returns (0.0, 1.0) for zero games — maximally uninformative, never clear.
+    """
+    if games <= 0:
+        return (0.0, 1.0)
+    proportion = wins / games
+    denominator = 1.0 + z * z / games
+    center = (proportion + z * z / (2 * games)) / denominator
+    half_width = (
+        z
+        * np.sqrt(proportion * (1.0 - proportion) / games + z * z / (4 * games * games))
+        / denominator
+    )
+    return (max(0.0, center - half_width), min(1.0, center + half_width))
+
+
+def personal_baseline(conn: duckdb.DuckDBPyConnection) -> float:
+    """Return the player's overall win rate within the current analysis scope.
+
+    This is the baseline every matchup and champion verdict is measured against,
+    per PRODUCT.md section 4: "+8% above your overall mid-lane baseline". A
+    matchup is not good because it beats a coin flip; it is good because it
+    beats how the player does in general.
+    """
+    result = conn.execute(
+        """
+        SELECT AVG(win::INTEGER)
+        FROM matches
+        WHERE game_datetime >= ? AND team_position = ?
+        """,
+        [CURRENT_SEASON_START, ANALYSIS_ROLE],
+    ).fetchone()[0]
+    return float(result) if result is not None else 0.5
+
+
+def classify_winrate(low: float, high: float, baseline: float) -> str:
+    """Classify a win-rate interval against the player's baseline.
+
+    Returns one of the PRODUCT.md section 7 classes. ``Skill-based`` is
+    deliberately not emitted: separating "reliably close to baseline" from
+    "we simply do not know" requires naming a minimum interesting effect size,
+    which PRODUCT.md section 12 makes a user decision. Until that number
+    exists, both cases are honestly reported as Uncertain.
+    """
+    if low > baseline:
+        return "Positive"
+    if high < baseline:
+        return "Negative"
+    return "Uncertain"
+
+
+def _add_winrate_interval(
+    df: pd.DataFrame, rate_column: str, baseline: float
+) -> pd.DataFrame:
+    """Attach winrate_lo, winrate_hi, and matchup_class from the Wilson interval."""
+    bounds = [
+        wilson_interval(round(rate * games), int(games))
+        for rate, games in zip(df[rate_column], df["games"], strict=True)
+    ]
+    df["winrate_lo"] = [low for low, _ in bounds]
+    df["winrate_hi"] = [high for _, high in bounds]
+    df["matchup_class"] = [
+        classify_winrate(low, high, baseline) for low, high in bounds
+    ]
+    return df
+
+
+def champion_winrates(
+    conn: duckdb.DuckDBPyConnection, dimension: str
+) -> pd.DataFrame:
+    """Aggregate win rate by our champion or by opponent champion.
+
+    Pair-level matchup slices are too small to support a verdict; these two
+    single-axis groupings are where a defensible one can still exist.
+
+    Columns: name, games, wins, winrate, winrate_lo, winrate_hi, matchup_class.
+    """
+    if dimension not in WINRATE_GROUPINGS:
+        raise ValueError(
+            f"dimension must be one of {sorted(WINRATE_GROUPINGS)}, got {dimension!r}"
+        )
+    group_column = WINRATE_GROUPINGS[dimension]
+
+    df = conn.execute(f"""
+        SELECT
+            {group_column} AS name,
+            COUNT(*)::INTEGER AS games,
+            SUM(win::INTEGER)::INTEGER AS wins
+        FROM matches
+        WHERE game_datetime >= ?
+          AND team_position = ?
+          AND {group_column} IS NOT NULL
+        GROUP BY {group_column}
+        ORDER BY games DESC, name ASC
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
+
+    if df.empty:
+        return pd.DataFrame(
+            columns=["name", "games", "wins", "winrate",
+                     "winrate_lo", "winrate_hi", "matchup_class"]
+        )
+
+    df["winrate"] = df["wins"] / df["games"]
+    return _add_winrate_interval(df, "winrate", personal_baseline(conn))
 
 
 def _time_bucket(hour: int) -> str:
@@ -315,7 +436,12 @@ def champion_matchup_stats(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
 
     Filters to matchups with at least 2 games.
     Columns: champion_name, opp_champion_name, games, our_avg_cs, opp_avg_cs,
-    cs_diff, our_winrate, our_avg_kda, opp_avg_kda.
+    cs_diff, gold_diff, our_winrate, winrate_lo, winrate_hi, matchup_class,
+    our_avg_kda, opp_avg_kda.
+
+    ``gold_diff`` is end-of-game gold against the actual lane opponent — the
+    only opponent-anchored gold figure the schema currently carries. Per-minute
+    opponent gold requires parsing all ten participantFrames.
     """
     df = conn.execute("""
         SELECT
@@ -323,6 +449,8 @@ def champion_matchup_stats(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
             opp_champion_name,
             cs_total,
             opp_cs_total,
+            gold_earned,
+            opp_gold_earned,
             win,
             kda,
             opp_kills,
@@ -344,6 +472,8 @@ def champion_matchup_stats(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
             games=("win", "count"),
             our_avg_cs=("cs_total", "mean"),
             opp_avg_cs=("opp_cs_total", "mean"),
+            our_avg_gold=("gold_earned", "mean"),
+            opp_avg_gold=("opp_gold_earned", "mean"),
             our_winrate=("win", "mean"),
             our_avg_kda=("kda", "mean"),
             opp_avg_kda=("opp_kda", "mean"),
@@ -351,14 +481,18 @@ def champion_matchup_stats(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         .reset_index()
     )
     stats["cs_diff"] = stats["our_avg_cs"] - stats["opp_avg_cs"]
+    stats["gold_diff"] = stats["our_avg_gold"] - stats["opp_avg_gold"]
 
-    return stats.loc[
-        stats["games"] >= 2,
+    stats = stats.loc[stats["games"] >= 2].reset_index(drop=True)
+    stats = _add_winrate_interval(stats, "our_winrate", personal_baseline(conn))
+
+    return stats[
         [
             "champion_name", "opp_champion_name", "games",
-            "our_avg_cs", "opp_avg_cs", "cs_diff",
-            "our_winrate", "our_avg_kda", "opp_avg_kda",
-        ],
+            "our_avg_cs", "opp_avg_cs", "cs_diff", "gold_diff",
+            "our_winrate", "winrate_lo", "winrate_hi", "matchup_class",
+            "our_avg_kda", "opp_avg_kda",
+        ]
     ].reset_index(drop=True)
 
 
