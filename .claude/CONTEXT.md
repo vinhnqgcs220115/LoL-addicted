@@ -46,47 +46,49 @@ Not verified since 2026-07-18 — treat as stale until re-run:
 
 ## Open items
 
-Ordered by dependency, from the 2026-08-12 pipeline audit. Stage 0 blocks stages 1-3.
+Ordered by dependency and by the `PRODUCT.md` section 13 priority ladder. Sourced from the 2026-08-12 pipeline audit and the product specification absorbed into `PRODUCT.md` on the same date.
 
-**Ship immediately — blocked by nothing, no rebuild needed**
+### P0 — correctness. Blocked by nothing, no rebuild required.
 
-- U3 — sample-size gating. Verified 2026-08-12 against `champion_matchup_stats` on the deploy DB: 71 matchup pairs render, 46 receive a colored win-rate verdict chip at the 55% / 45% cut, 39 of those from 3 games or fewer, and 32 read exactly 0% or 100%. Only 5 pairs have 5 or more games. Patch rates run 5-60 games per patch with no interval; time-of-day the same.
-- Quick win — `opp_gold_earned` is collected and stored on every match row and read by nothing. It is the only opponent-anchored gold figure available before D1 lands, and it yields a real end-of-game gold differential per matchup today with no reparse. Partially serves the `PRODUCT.md` section 4 baseline-comparison tier ahead of stage 0.
-- U4 — rename or remove every mislabeled proxy. "Deaths while ahead", "Overextension", "Deficit Fight" all compare the player to their own season average, not to the opponent. `PRODUCT.md` section 8 violation as displayed.
+- U3 — replace the invented 55% / 45% win-rate cutoff with sample-aware classification. `PRODUCT.md` section 7 sanctions Wilson intervals and requires the four-way outcome Positive / Negative / Skill-based / Uncertain plus a High / Medium / Low / Insufficient confidence band. Verified 2026-08-12 against the deploy DB: at 95% Wilson, **zero of 71** matchup pairs support a directional verdict, while the single-axis groupings do — Zoe 53/86 = 62% CI [0.51, 0.71]; opponent Sylas 17/23 = 74% CI [0.54, 0.87]; opponent Viktor 14/19 = 74% CI [0.51, 0.88]; opponent Naafiri 0/8 = 0% CI [0.00, 0.32]. Those four figures are from the 2026-07-18 snapshot and will move on the next refresh.
+- U4 — rename or remove every mislabeled proxy. "Deaths while ahead", "Overextension", "Deficit Fight" compare the player to their own season average, not to the opponent. `PRODUCT.md` section 12 requires a deficit claim to rest on opponent evidence. Cluster names `Behind & Spiraling` and `Ahead but Overextending` carry the same false semantics but are a user decision and are subject to M1 — flag, do not rename unilaterally.
+- Low-data state vocabulary. `PRODUCT.md` section 7 requires no data, insufficient data, statistically uncertain, data unavailable, and feature not implemented to be distinguishable. A rendered `0%` that means "not enough games" is a bug.
+- Quick win — `opp_gold_earned` is stored on every match row and read by nothing. Only opponent-anchored gold figure available before D1, and it yields a real end-of-game gold differential per matchup today.
 
-**Stage 0 — the reparse. No Riot API calls. Blocks stages 1-3.**
+### P1 — the product layer. Buildable from `matches` alone; not blocked by the reparse.
 
-- D1 — store all ten `participantFrames` per timeline frame instead of one. Verified 2026-08-12 against `tests/fixtures/sample_match_timeline.json`: every frame carries all ten participants with `totalGold`, `xp`, `minionsKilled`, `level`, and `position`. Unlocks a true per-minute lane differential and retires every self-referential baseline in the project.
+- Match History page — "Which games should I inspect?" Filters and sorting by date, champion, opponent, role, result, queue, season, and date range. Optimize for fast scanning over density. All fields already exist in `matches`.
+- Champion Pool page — per-champion games, wins, losses, win rate, KDA, CS/min, gold/min, damage/min, average duration, recent form.
+- D6 — champion archetype mapping. **No longer blocked**: `PRODUCT.md` section 7 fixes the working taxonomy at 14 categories. Needs a curated champion-to-archetype table plus tests, nothing more.
+- Archetype-level matchup classification and pocket-pick detection. Pair-level slices cannot carry a verdict; archetype buckets can. Labels are fixed in `PRODUCT.md` section 6.
+- Overview rebuilt around "How am I doing, and what should I investigate?" — current form, streak, strongest and weakest champions, pool composition, high-confidence insights only.
+
+### Stage 0 — the reparse. No Riot API calls. Blocks every P2 item.
+
+Pulled ahead of the P2 UI work per `PRODUCT.md` section 11: do not redesign around a limitation that can cheaply be removed from the pipeline.
+
+- D1 — store all ten `participantFrames` per timeline frame instead of one. Verified 2026-08-12 against `tests/fixtures/sample_match_timeline.json`: every frame carries all ten participants with `totalGold`, `xp`, `minionsKilled`, `level`, and `position`. Unlocks CS, XP, gold, and level differentials over time plus lane-state transitions, and retires every self-referential baseline in the project.
 - D2 — parse the timeline event stream. One representative match carries 61 `CHAMPION_KILL` (with `position`, `killerId`, `assistingParticipantIds`), 126 `WARD_PLACED`, 60 `TURRET_PLATE_DESTROYED`, 15 `BUILDING_KILL`, 9 `ELITE_MONSTER_KILL`. `extract_death_rows()` reads the kill event and keeps only its timestamp.
-- Cost for D1 + D2 together: `processor.py` parsing, schema change, `_assert_table_columns` update, new fixtures and tests, full `rebuild`, `FEATURE_MATRIX_COLUMNS` update in `build_deploy_db.py` (raises on drift by design), re-verified deploy snapshot. No collection, no key, no rate limit.
+- Cost for D1 and D2 together: `processor.py` parsing, schema change, `_assert_table_columns` update, new fixtures and tests, full `rebuild`, `FEATURE_MATRIX_COLUMNS` update in `build_deploy_db.py` (raises on drift by design), re-verified deploy snapshot. No collection, no key, no rate limit.
 
-**Stage 1 — honest features. Blocked by stage 0.**
+### P2 — advanced analysis. Blocked by stage 0.
 
-- D3 — fix roam detection. Verified 2026-08-12 by re-running the detector over the deploy DB: the `len(block) < 2` guard in `roam_timing()` alone accounts for the entire shortfall. Minimum contiguous minutes of 1 yields 308 of 390 games and 513 windows; the current value of 2 yields 81 games and 84 windows, exactly what is persisted; 3 yields 15. Riot samples once per minute and a mid roam takes 30-60 seconds, so the typical roam occupies one frame. Replace contiguity with a position-change threshold or corroboration from a kill/assist event.
-- D4 — redefine Throw and Comeback on real opponent gold difference at minute 14, or rename them. Current definition is gold at 14 versus the player's own season mean crossed with the result.
-- Replace every self-referential "lead" with the true lane differential.
-- Deaths by map region, now that death position exists.
+- Match Detail page — "What actually happened in this game?" Lane phase with CS, XP, gold, and level differences, first recall, plates, solo kills; a chronological timeline of important events; per-death context.
+- Death context rebuilt on real evidence — location, nearby champions, objective state, roam state. Must state its own confidence and must say "unknown" rather than guess.
+- D3 — fix roam detection. Verified 2026-08-12 by re-running the detector over the deploy DB: the `len(block) < 2` guard in `roam_timing()` alone accounts for the entire shortfall. Minimum contiguous minutes of 1 yields 308 of 390 games and 513 windows; the current value of 2 yields 81 games and 84 windows, exactly what is persisted; 3 yields 15. Riot samples once per minute and a mid roam takes 30-60 seconds, so the typical roam occupies one frame. `kills_during_roam` also ignores assists, which D2 supplies.
+- D4 — redefine Throw and Comeback on real opponent gold difference at minute 14, or retire them.
 
-**Stage 2 — model decision. Blocked by stage 1.**
+### P3 — higher-level intelligence. Blocked by P2.
 
-- D5 — rebuild the feature set. `total_deaths`, `tilt_spiral_ratio`, and `max_death_streak` correlate pairwise at r = 0.75-0.82, so K-Means is close to one-dimensional on death count. `roam_impact_rate` is the neutral fill value 0.5 in 318 of 396 rows. Reconsider whether `tilt_index`, a rolling win rate of prior games, belongs in a model meant to describe in-game behavior.
-- M1 — decide whether K-Means survives. Cluster win rates are 76.6% / 50.7% / 34.6% against `total_deaths` z-scores of -1.03 / +0.22 / +0.60, so the clusters restate "you lose the games where you die more". `PRODUCT.md` section 8 requires interpretation to be earned. User decision, not an agent default.
+- D5 — rebuild the feature set. `total_deaths`, `tilt_spiral_ratio`, and `max_death_streak` correlate pairwise at r = 0.75-0.82, so K-Means is close to one-dimensional on death count. `roam_impact_rate` is the neutral fill value 0.5 in 318 of 396 rows.
+- M1 — decide whether K-Means survives. Cluster win rates are 76.6% / 50.7% / 34.6% against `total_deaths` z-scores of -1.03 / +0.22 / +0.60, so the clusters restate "you lose the games where you die more". User decision, not an agent default.
+- Recurring pattern detection on repeated evidence. One unusual game is never a pattern.
 
-**Stage 3 — dashboard rebuild. Blocked by stage 1; U1's narrative layer by stage 2.**
+### Cross-cutting
 
-- U1 — game list and match detail view. `PRODUCT.md` 30-second test sentence 3 and done-criterion 5 both require the player to leave knowing which games to rewatch; there is currently no game list, no match detail, and no path from a pattern back to its games. Zero coverage, largest single product gap. `src/mapping.py` and the minimap assets already exist and are tested but are imported by nothing outside `tests/test_mapping.py`; `roam_windows` and per-minute `position_x`/`position_y` ship in the deploy DB and are queried by no dashboard code. **Privacy flag:** the known-issue below accepts `game_datetime` retention in the deploy DB as a portfolio-scale risk, but that assessment predates any per-game view. A dated game list plus champion plus patch is materially more identifying than a season aggregate. Not a blocker and not an agent decision — decide it before U1 ships, not after.
-- U2 — every tab opens with a conclusion, evidence second, raw numbers as reference.
-- U5 — demote the OP.GG-parity surface to a labeled reference strip.
-- U6 — rebuild Champions around champion class buckets rather than pairs.
-
-**Independent — blocked by nothing, needs one user decision**
-
-- D6 — champion class mapping. Riot Data Dragon tags are coarser than "control mage" and "early-pressure assassin"; the category list is a product decision.
-
-**Housekeeping**
-
-- Confirm the two `UNCONFIRMED` reconstructions in `PRODUCT.md` and supply the two `<FILL IN>` fragments lost in the source paste: the UI evaluation question ("Can a player understand t...") and the body of the "Personal-first Scope" section.
-- Recapture `docs/screenshots/` after the dashboard rework, not before.
+- Metric definitions. `PRODUCT.md` section 7 requires every important metric to document source, calculation, assumptions, and limitations. No file owns this yet. Write it once the metrics stabilize after stage 0, not before.
+- Privacy decision before Match History or Match Detail ships. The known issue below accepts `game_datetime` in the deploy DB as portfolio-scale risk, but that assessment predates any per-game view. A dated game list plus champion plus patch is materially more identifying than a season aggregate. Not an agent decision.
+- Recapture `docs/screenshots/` after the UI rework, not before.
 - Re-verify the live deployment and record the result here.
 
 ## Known issues

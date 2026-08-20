@@ -44,6 +44,14 @@ Collection and processing retain all ranked roles. The current analytical produc
 
 `GAME_MECHANICS.md` is authoritative for mid-lane domain mechanics. Read it before changing roam, death-context, throw/comeback, wave-state, or objective-timing features. Current dashboard labels such as Throw, Comeback, Overextension, Deficit Fight, Post-Laning Throw, and roam-derived cluster features are heuristic proxies from single-player timeline data unless the code explicitly parses full team/opponent state.
 
+## Data Integrity
+
+Analytics are only useful if the underlying data is correct. Before changing analytics logic, verify match filtering, role and lane filtering, champion identity, patch and season handling, duplicate matches, timestamps, participant mapping, opponent mapping, win/loss interpretation, and timeline alignment.
+
+Be especially careful with off-role games, duplicate games, incomplete timeline data, stale derived tables, stale cached values, and metrics calculated from the wrong scope.
+
+A visually impressive statistic calculated incorrectly is worse than no statistic.
+
 ## Code Conventions
 
 Type hints on all functions. Module-level constants in `UPPER_SNAKE_CASE`. All secrets via `python-dotenv`, never hardcoded. Catch specific exceptions, not bare `except`. Docstrings on public functions.

@@ -44,6 +44,14 @@ python -m ruff check src tests dashboard scripts   # Lint Python
 
 Commands stop on the first failed native process. Use `rebuild` after parser or schema changes.
 
+## Data Integrity
+
+Analytics are only useful if the underlying data is correct. Before changing analytics logic, verify match filtering, role and lane filtering, champion identity, patch and season handling, duplicate matches, timestamps, participant mapping, opponent mapping, win/loss interpretation, and timeline alignment.
+
+Be especially careful with off-role games, duplicate games, incomplete timeline data, stale derived tables, stale cached values, and metrics calculated from the wrong scope.
+
+A visually impressive statistic calculated incorrectly is worse than no statistic.
+
 ## Coding Style & Testing
 
 Use four-space indentation, function type hints, focused public docstrings, `snake_case` names, and `UPPER_CASE` constants. Prefer `pathlib.Path`, parameterized DuckDB queries, and specific exceptions.
