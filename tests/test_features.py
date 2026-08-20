@@ -9,6 +9,7 @@ from src.features import (
     _direction_survives_one_more_game,
     build_feature_matrix,
     champion_matchup_stats,
+    binomial_significance,
     classify_winrate,
     champion_archetype_matchups,
     champion_pool,
@@ -346,13 +347,30 @@ def test_classify_winrate_uses_baseline_not_coin_flip() -> None:
     """A verdict is measured against the player's own baseline, not 50%."""
     baseline = 0.60
 
-    # Beats a coin flip but not this player's baseline -> not Positive.
-    assert classify_winrate(0.52, 0.58, baseline) == "Negative"
-    assert classify_winrate(0.62, 0.80, baseline) == "Positive"
-    # An interval spanning the baseline is never a verdict.
-    assert classify_winrate(0.30, 0.90, baseline) == "Uncertain"
-    # Skill-based needs a user-supplied effect size and must not be invented.
-    assert classify_winrate(0.59, 0.61, baseline) == "Uncertain"
+    # 40 of 100 beats a coin flip but is well below this player's baseline.
+    assert classify_winrate(40, 100, baseline) == "Negative"
+    assert classify_winrate(80, 100, baseline) == "Positive"
+    # Sitting on the baseline is never a verdict, at any sample size.
+    assert classify_winrate(60, 100, baseline) == "Uncertain"
+    assert classify_winrate(0, 0, baseline) == "Uncertain"
+
+
+def test_a_perfect_tiny_record_is_not_a_verdict() -> None:
+    """4-0 must not clear a ~51% baseline; one loss would reverse it.
+
+    The Wilson interval is a normal approximation and is anti-conservative here:
+    it put the lower bound a thousandth above the baseline and rendered a
+    verdict. The exact binomial test is what withholds it.
+    """
+    baseline = 0.509
+
+    assert classify_winrate(4, 4, baseline) == "Uncertain"
+    assert binomial_significance(4, 4, baseline) > 0.05
+    # A real record at the same rate direction still clears.
+    assert classify_winrate(15, 20, baseline) == "Positive"
+    assert binomial_significance(15, 20, baseline) < 0.05
+    # And the losing side behaves symmetrically.
+    assert classify_winrate(2, 11, baseline) == "Negative"
 
 
 def test_games_to_verdict_scales_with_the_gap_to_baseline() -> None:
