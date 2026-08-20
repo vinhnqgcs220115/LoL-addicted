@@ -42,9 +42,10 @@ Local-only, gitignored, verified 2026-08-20 on this machine:
 
 **Collection is complete for the analytical scope but not for all history.** The Riot API lists 856 ranked solo games; 704 are on disk. `DEFAULT_MATCH_COUNT` in `src/collector.py` caps a run at 500 IDs, and the 500th most recent is dated 2026-01-29, so the 152 missing games are all older than that and therefore pre-Season-16. They are out of analytical scope and were deliberately not collected. Raise the count if all-history coverage is ever wanted.
 
-Not verified since 2026-07-18:
+**Live deployment verified 2026-08-20** — first time since 2026-07-18. The app at `https://myishaa.streamlit.app/` serves the refreshed snapshot and reports 483 games. It required a manual reboot from the Streamlit Cloud console: Community Cloud suspends inactive apps, and a suspended app does not rebuild on push, so a commit lands but the served container stays on the previous build. Expect the same after any future refresh — pushing is not sufficient, the app has to be awake or rebooted.
 
-- Live app at `https://myishaa.streamlit.app/`. The snapshot is committed and pushed; the deployment itself has not been loaded and checked.
+Not verified:
+
 - The three files in `docs/screenshots/` predate the four-tab UI.
 
 ## Open items
