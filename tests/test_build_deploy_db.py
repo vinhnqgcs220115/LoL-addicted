@@ -36,8 +36,9 @@ def _create_source_db(path: Path, feature_columns: tuple[str, ...]) -> None:
         conn.execute(
             """
             INSERT INTO roam_windows
-                (match_id, roam_start_min, roam_end_min, kills_during_roam, roam_result)
-            VALUES ('MATCH_1', 5, 6, 1, 'impact')
+                (match_id, roam_start_min, roam_end_min, kills_during_roam,
+                 assists_during_roam, roam_result)
+            VALUES ('MATCH_1', 5, 6, 1, 2, 'impact')
             """
         )
         conn.execute(

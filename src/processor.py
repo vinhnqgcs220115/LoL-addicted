@@ -109,6 +109,7 @@ ROAM_WINDOW_COLUMNS = (
     "roam_start_min",
     "roam_end_min",
     "kills_during_roam",
+    "assists_during_roam",
     "roam_result",
 )
 
@@ -270,6 +271,7 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
             roam_start_min INTEGER NOT NULL,
             roam_end_min INTEGER NOT NULL,
             kills_during_roam INTEGER NOT NULL,
+            assists_during_roam INTEGER NOT NULL,
             roam_result VARCHAR NOT NULL,
             PRIMARY KEY (match_id, roam_start_min, roam_end_min)
         )

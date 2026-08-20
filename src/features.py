@@ -15,6 +15,8 @@ DB_PATH = BASE_DIR / "data" / "lol.duckdb"
 LANING_PHASE_END_MIN: int = 14
 THROW_GOLD_THRESHOLD: int = 300
 MID_LANE_CORRIDOR_WIDTH: int = 2500
+MAP_DIAGONAL_SUM: int = 14870      # x + y at the midpoint of Summoner's Rift
+BLUE_TEAM_ID: int = 100
 ROAM_PHASE_START_MIN: int = 4
 ROAM_PHASE_END_MIN: int = 14
 CURRENT_SEASON_START: str = "2026-01-10T00:00:00+00:00"
@@ -438,15 +440,25 @@ def _time_bucket(hour: int) -> str:
     return "night"  # covers 23 and 0-5
 
 
-def death_context(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
-    """Return per-death annotations classifying each death by context.
+DEATH_ZONE_MID: str = "mid lane"
+DEATH_ZONE_TOP: str = "top side"
+DEATH_ZONE_BOT: str = "bot side"
+DEATH_ZONE_UNKNOWN: str = "unknown"
 
-    Joins match_deaths with match_timelines average-gold lookup and matches
-    for game-level context. Returns one row per death in the current analysis scope.
+
+def death_context(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Annotate every death with what the timeline actually recorded.
+
+    Rebuilt on the reparsed data. Where a death was, who got it, whether anyone
+    helped, and how the player stood against their lane opponent at that minute
+    are all real now; before the reparse none of them existed and the categories
+    compared the player to their own season average instead.
 
     Columns: match_id, death_number, timestamp_min, gold_at_death,
-    gold_lead_approx, is_overextension_ahead, is_deficit_fight,
-    is_early_death, is_tilt_spiral, is_post_laning_throw.
+    opp_gold_at_death, lane_gold_diff, killed_by_laner, killer_champion,
+    is_solo_death, death_zone, in_enemy_half, phase, is_early_death,
+    is_tilt_spiral, is_overextension_ahead, is_deficit_fight,
+    is_post_laning_throw, context_known.
 
     Games with zero deaths produce no rows — that is not an error.
     """
@@ -455,101 +467,137 @@ def death_context(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
             d.match_id,
             d.death_number,
             d.timestamp_min,
-            d.gold_at_death
+            d.gold_at_death,
+            d.opp_gold_at_death,
+            d.position_x,
+            d.position_y,
+            d.killer_champion,
+            d.assist_count,
+            m.opp_champion_name,
+            m.team_id
         FROM match_deaths d
         JOIN matches m ON m.match_id = d.match_id
         WHERE m.game_datetime >= ?
           AND m.team_position = ?
+        ORDER BY d.match_id, d.death_number
     """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
 
+    columns = [
+        "match_id", "death_number", "timestamp_min", "gold_at_death",
+        "opp_gold_at_death", "lane_gold_diff", "killed_by_laner",
+        "killer_champion", "is_solo_death", "death_zone", "in_enemy_half",
+        "phase", "is_early_death", "is_tilt_spiral", "is_overextension_ahead",
+        "is_deficit_fight", "is_post_laning_throw", "context_known",
+    ]
     if df.empty:
-        return pd.DataFrame(columns=[
-            "match_id", "death_number", "timestamp_min", "gold_at_death",
-            "gold_lead_approx", "is_overextension_ahead", "is_deficit_fight",
-            "is_early_death", "is_tilt_spiral", "is_post_laning_throw",
-        ])
+        return pd.DataFrame(columns=columns)
 
-    # Average gold per minute within the current season/role scope.
-    avg_gold = conn.execute("""
-        SELECT mt.timestamp_min, AVG(mt.gold) AS avg_gold
-        FROM match_timelines mt
-        JOIN matches m ON m.match_id = mt.match_id
-        WHERE m.game_datetime >= ?
-          AND m.team_position = ?
-        GROUP BY mt.timestamp_min
-    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
+    # Lane standing at the moment of death, against the actual opponent.
+    lane_gold_diff = df["gold_at_death"] - df["opp_gold_at_death"]
 
-    df = df.merge(avg_gold, on="timestamp_min", how="left")
-    df["gold_lead_approx"] = df["gold_at_death"].fillna(0.0) - df["avg_gold"].fillna(0.0)
+    offset_from_mid = (df["position_x"] - df["position_y"]).abs()
+    has_position = df["position_x"].notna() & df["position_y"].notna()
+    death_zone = pd.Series(DEATH_ZONE_UNKNOWN, index=df.index, dtype=object)
+    in_corridor = has_position & (offset_from_mid < MID_LANE_CORRIDOR_WIDTH)
+    death_zone[in_corridor] = DEATH_ZONE_MID
+    # Above the mid diagonal is the top side of the map, below it the bottom.
+    death_zone[has_position & ~in_corridor & (df["position_y"] > df["position_x"])] = (
+        DEATH_ZONE_TOP
+    )
+    death_zone[has_position & ~in_corridor & (df["position_y"] <= df["position_x"])] = (
+        DEATH_ZONE_BOT
+    )
 
-    # Gold at the frame closest to minute 14 within the current scope.
-    gold_at_min14 = conn.execute("""
-        WITH ranked AS (
-            SELECT
-                mt.match_id,
-                mt.gold AS gold_at_min14,
-                ROW_NUMBER() OVER (
-                    PARTITION BY mt.match_id
-                    ORDER BY ABS(mt.timestamp_min - 14)
-                ) AS rn
-            FROM match_timelines mt
-            JOIN matches m ON m.match_id = mt.match_id
-            WHERE mt.timestamp_min BETWEEN 12 AND 16
-              AND m.game_datetime >= ?
-              AND m.team_position = ?
-        )
-        SELECT match_id, gold_at_min14
-        FROM ranked
-        WHERE rn = 1
-    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
+    # Blue side spawns at the low corner, red side at the high corner, so which
+    # half a position sits in depends on which team the player was on.
+    position_sum = df["position_x"] + df["position_y"]
+    is_blue = df["team_id"] == BLUE_TEAM_ID
+    in_enemy_half = pd.Series(pd.NA, index=df.index, dtype="boolean")
+    in_enemy_half[has_position & is_blue] = position_sum > MAP_DIAGONAL_SUM
+    in_enemy_half[has_position & ~is_blue] = position_sum < MAP_DIAGONAL_SUM
 
-    player_avg_gold_at_14: float = float(gold_at_min14["gold_at_min14"].mean())
-    df = df.merge(gold_at_min14, on="match_id", how="left")
+    killed_by_laner = (
+        df["killer_champion"].notna()
+        & df["opp_champion_name"].notna()
+        & (df["killer_champion"] == df["opp_champion_name"])
+    )
 
-    # is_tilt_spiral: previous death in this game is within 3 minutes
-    df = df.sort_values(["match_id", "death_number"]).reset_index(drop=True)
-    prev_ts = df.groupby("match_id")["timestamp_min"].shift(1)
-    is_tilt_spiral = ((df["timestamp_min"] - prev_ts) <= TILT_SPIRAL_GAP_MIN) & prev_ts.notna()
+    phase = pd.Series("post-laning", index=df.index, dtype=object)
+    phase[df["timestamp_min"] < LANING_PHASE_END_MIN] = "laning"
+    phase[df["timestamp_min"] < EARLY_DEATH_THRESHOLD_MIN] = "early"
+
+    previous_timestamp = df.groupby("match_id")["timestamp_min"].shift(1)
+    is_tilt_spiral = (
+        (df["timestamp_min"] - previous_timestamp) <= TILT_SPIRAL_GAP_MIN
+    ) & previous_timestamp.notna()
+
+    known_standing = lane_gold_diff.notna()
 
     result = pd.DataFrame({
         "match_id": df["match_id"],
         "death_number": df["death_number"],
         "timestamp_min": df["timestamp_min"],
         "gold_at_death": df["gold_at_death"],
-        "gold_lead_approx": df["gold_lead_approx"].fillna(0.0),
-        "is_overextension_ahead": (
-            (df["gold_lead_approx"] > THROW_GOLD_THRESHOLD)
-            & (df["timestamp_min"] <= LANING_PHASE_END_MIN)
-        ),
-        "is_deficit_fight": (
-            (df["gold_lead_approx"] < -THROW_GOLD_THRESHOLD)
-            & (df["timestamp_min"] <= LANING_PHASE_END_MIN)
-        ),
+        "opp_gold_at_death": df["opp_gold_at_death"],
+        "lane_gold_diff": lane_gold_diff,
+        "killed_by_laner": killed_by_laner,
+        "killer_champion": df["killer_champion"],
+        "is_solo_death": df["assist_count"].fillna(0) == 0,
+        "death_zone": death_zone,
+        "in_enemy_half": in_enemy_half,
+        "phase": phase,
         "is_early_death": df["timestamp_min"] < EARLY_DEATH_THRESHOLD_MIN,
         "is_tilt_spiral": is_tilt_spiral.fillna(False),
-        "is_post_laning_throw": (
-            (df["timestamp_min"] > LANING_PHASE_END_MIN)
-            & df["gold_at_min14"].notna()
-            & (df["gold_at_min14"] > player_avg_gold_at_14 + THROW_GOLD_THRESHOLD)
+        # Ahead of, or behind, the actual lane opponent when it happened. These
+        # two kept their names but no longer compare the player to themselves.
+        "is_overextension_ahead": (
+            known_standing
+            & (lane_gold_diff > THROW_GOLD_THRESHOLD)
+            & (df["timestamp_min"] <= LANING_PHASE_END_MIN)
         ).fillna(False),
+        "is_deficit_fight": (
+            known_standing
+            & (lane_gold_diff < -THROW_GOLD_THRESHOLD)
+            & (df["timestamp_min"] <= LANING_PHASE_END_MIN)
+        ).fillna(False),
+        # Died after laning while the lane was still won.
+        "is_post_laning_throw": (
+            known_standing
+            & (df["timestamp_min"] > LANING_PHASE_END_MIN)
+            & (lane_gold_diff > 0)
+        ).fillna(False),
+        # A death classified without position or killer is reported, not guessed.
+        "context_known": has_position & df["killer_champion"].notna(),
     })
 
-    return result
+    return result[columns].reset_index(drop=True)
 
 
 def is_throw_game(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
-    """Classify each game as a throw, comeback, or neutral at the gold-at-14 level.
+    """Classify each game by whether a real team lead at minute 14 was kept.
 
-    Uses the frame closest to minute 14 (between minutes 12–16). Games with no
-    frame in that window are excluded from output.
+    A throw is the team being ahead and losing anyway; a comeback is the
+    reverse. Both are measured on ``team_gold - enemy_team_gold`` at the frame
+    closest to minute 14, which the reparse made available. The previous
+    definition compared the player's own gold to their own season average, so a
+    "throw" only meant a better-than-usual start that still lost.
 
-    Columns: match_id, gold_at_14, gold_delta, is_throw, is_comeback.
+    The boundary is zero — genuinely ahead or genuinely behind. No lead size is
+    invented, which PRODUCT.md section 12 forbids.
+
+    ``gold_delta`` is retained unchanged because it is a model feature in
+    ``src/models.py::FEATURE_COLS``; changing it would redefine the clusters.
+
+    Columns: match_id, gold_at_14, gold_delta, team_lead_14, lane_gold_diff_14,
+    is_throw, is_comeback.
     """
     gold_df = conn.execute("""
         WITH ranked AS (
             SELECT
                 mt.match_id,
                 mt.gold AS gold_at_14,
+                mt.team_gold - mt.enemy_team_gold AS team_lead_14,
+                mt.gold - mt.opp_gold AS lane_gold_diff_14,
                 ROW_NUMBER() OVER (
                     PARTITION BY mt.match_id
                     ORDER BY ABS(mt.timestamp_min - 14)
@@ -560,7 +608,7 @@ def is_throw_game(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
               AND m.game_datetime >= ?
               AND m.team_position = ?
         )
-        SELECT match_id, gold_at_14
+        SELECT match_id, gold_at_14, team_lead_14, lane_gold_diff_14
         FROM ranked
         WHERE rn = 1
     """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
@@ -577,10 +625,14 @@ def is_throw_game(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
 
     avg_gold_14: float = float(df["gold_at_14"].mean())
     df["gold_delta"] = df["gold_at_14"] - avg_gold_14
-    df["is_throw"] = (df["gold_delta"] >= THROW_GOLD_THRESHOLD) & (~df["win"])
-    df["is_comeback"] = (df["gold_delta"] <= -THROW_GOLD_THRESHOLD) & df["win"]
+    team_lead = df["team_lead_14"].fillna(0.0)
+    df["is_throw"] = (team_lead > 0) & (~df["win"])
+    df["is_comeback"] = (team_lead < 0) & df["win"]
 
-    return df[["match_id", "gold_at_14", "gold_delta", "is_throw", "is_comeback"]]
+    return df[[
+        "match_id", "gold_at_14", "gold_delta", "team_lead_14",
+        "lane_gold_diff_14", "is_throw", "is_comeback",
+    ]]
 
 
 def roam_timing(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
@@ -588,8 +640,10 @@ def roam_timing(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
 
     Detection uses position data when available: a roam is a contiguous block of
     minutes 4–14 where abs(position_x - position_y) >= MID_LANE_CORRIDOR_WIDTH.
-    Requires at least 2 consecutive minutes outside the corridor (single-frame
-    noise excluded).
+
+    A single frame is enough. Riot samples the timeline once per minute and a mid
+    roam takes 30 to 60 seconds, so requiring two consecutive minutes discarded
+    the typical roam: on this dataset it cut detection from 308 games to 81.
 
     When position_x is NULL for a game, falls back to CS-drop proxy: any minute
     where CS is more than 1.5 std deviations below the player's expected CS at
@@ -634,6 +688,24 @@ def roam_timing(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         ).fetchone()[0] or 0.0
     )
 
+    # Minutes in which the player assisted a kill, from the parsed event stream.
+    participation: dict[str, list[int]] = {}
+    try:
+        assist_rows = conn.execute("""
+            SELECT e.match_id, e.timestamp_min
+            FROM match_events e
+            JOIN matches m ON m.match_id = e.match_id
+            WHERE e.event_type = 'CHAMPION_KILL'
+              AND e.player_involvement = 'assist'
+              AND m.game_datetime >= ?
+              AND m.team_position = ?
+        """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).fetchall()
+    except duckdb.CatalogException:
+        # Databases built before the event reparse have no match_events table.
+        assist_rows = []
+    for row_match_id, minute in assist_rows:
+        participation.setdefault(row_match_id, []).append(int(minute))
+
     results: list[dict] = []
 
     for match_id, grp in timeline.groupby("match_id"):
@@ -665,9 +737,6 @@ def roam_timing(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         phase["block"] = (phase["is_roaming"] != phase["is_roaming"].shift()).cumsum()
 
         for _block_id, block in phase[phase["is_roaming"]].groupby("block"):
-            if len(block) < 2:
-                continue  # single-frame noise — excluded per spec
-
             roam_start = int(block["timestamp_min"].min())
             roam_end = int(block["timestamp_min"].max())
 
@@ -693,6 +762,13 @@ def roam_timing(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
             k_pre = int(k_pre_s.values[0]) if not k_pre_s.empty else 0
             kills_during = max(0, k_end - k_pre)
 
+            # A mid laner collapsing on a side lane usually gets the assist, not
+            # the kill. Counting only kills scored every such roam as a failure.
+            window = participation.get(match_id, [])
+            assists_during = sum(
+                1 for minute in window if roam_start <= minute <= roam_end
+            )
+
             results.append({
                 "match_id": match_id,
                 "roam_start_min": roam_start,
@@ -702,13 +778,17 @@ def roam_timing(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
                 "expected_cs_delta": expected_cs_delta,
                 "cs_sacrifice": cs_sacrifice,
                 "kills_during_roam": kills_during,
-                "roam_result": "impact" if kills_during > 0 else "no_impact",
+                "assists_during_roam": assists_during,
+                "roam_result": (
+                    "impact" if (kills_during + assists_during) > 0 else "no_impact"
+                ),
             })
 
     if not results:
         return pd.DataFrame(columns=[
             "match_id", "roam_start_min", "roam_end_min", "cs_before", "cs_after",
-            "expected_cs_delta", "cs_sacrifice", "kills_during_roam", "roam_result",
+            "expected_cs_delta", "cs_sacrifice", "kills_during_roam",
+            "assists_during_roam", "roam_result",
         ])
 
     return pd.DataFrame(results)

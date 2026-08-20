@@ -71,9 +71,17 @@ def _make_conn() -> duckdb.DuckDBPyConnection:
             conn.execute("""
                 INSERT INTO match_timelines
                     (match_id, timestamp_min, gold, cs, xp, kills,
-                     position_x, position_y)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, [match_id, minute, gold, cs, minute * 100, 0, 7500 + minute * 10, 7500 + minute * 10])
+                     position_x, position_y, opp_gold, opp_cs, opp_xp,
+                     team_gold, enemy_team_gold)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, [
+                match_id, minute, gold, cs, minute * 100, 0,
+                7500 + minute * 10, 7500 + minute * 10,
+                # Opponent trails slightly; S16_B's team is behind at 14 so the
+                # throw and comeback definitions have something real to read.
+                gold - 200, cs - 5, minute * 95,
+                gold * 5, (gold * 5) + (2000 if match_id == "S16_B" else -2000),
+            ])
 
     # --- Deaths for S16_A: 4 deaths, deaths 2/3/4 are consecutive (tilt spiral) ---
     # death 1: minute 5 (no previous → not tilt spiral)
@@ -466,3 +474,51 @@ def test_champion_archetype_matchups_drops_ineligible_opponents() -> None:
 
     assert "Build-dependent" not in set(frame["archetype"])
     assert not frame.empty
+
+
+def test_throw_and_comeback_use_a_real_team_lead() -> None:
+    """A throw is a team lead lost, not a better-than-usual personal start."""
+    conn = _make_conn()
+    throws = is_throw_game(conn)
+    conn.close()
+
+    by_match = throws.set_index("match_id")
+    # S16_B's team is behind at 14 and the game is a loss: neither label applies.
+    assert not bool(by_match.loc["S16_B", "is_throw"])
+    assert not bool(by_match.loc["S16_B", "is_comeback"])
+    # S16_A's team is ahead at 14 and the game is a win: a lead kept.
+    assert not bool(by_match.loc["S16_A", "is_throw"])
+    # S16_D's team is ahead at 14 and the game is a loss: that is the throw.
+    assert bool(by_match.loc["S16_D", "is_throw"])
+
+    # The real lane differential is carried through, not the self-referential one.
+    assert "lane_gold_diff_14" in throws.columns
+    assert float(by_match.loc["S16_A", "lane_gold_diff_14"]) == 200.0
+
+
+def test_death_context_reads_real_evidence() -> None:
+    """Position, killer and the opponent's gold replace the own-average proxy."""
+    conn = _make_conn()
+    conn.execute(
+        """
+        UPDATE match_deaths SET position_x = 12000, position_y = 3000,
+               killer_champion = 'Viktor', assist_count = 0,
+               opp_gold_at_death = 5000
+        WHERE match_id = 'S16_A' AND death_number = 1
+        """
+    )
+    deaths = death_context(conn)
+    conn.close()
+
+    row = deaths[
+        (deaths["match_id"] == "S16_A") & (deaths["death_number"] == 1)
+    ].iloc[0]
+    # Viktor is S16_A's listed opponent, so this is a lane death, fought solo.
+    assert bool(row["killed_by_laner"])
+    assert bool(row["is_solo_death"])
+    # Far off the mid diagonal, on the bottom side of the map.
+    assert row["death_zone"] == "bot side"
+    assert bool(row["context_known"])
+    # Behind the opponent in gold at that minute: 2750 against 5000.
+    assert float(row["lane_gold_diff"]) == -2250.0
+    assert bool(row["is_deficit_fight"])

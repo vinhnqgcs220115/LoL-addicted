@@ -51,7 +51,7 @@ CLUSTER_CARD_STATS: dict[str, tuple[tuple[str, str, bool], ...]] = {
     ),
     "Ahead but Overextending": (
         ("gold_delta", "Gold delta vs personal baseline", True),
-        ("deaths_while_ahead", "Deaths above own gold curve", True),
+        ("deaths_while_ahead", "Deaths while ahead of your laner", False),
     ),
     "Clean Games": (
         ("total_deaths", "Total deaths", False),
@@ -65,10 +65,14 @@ CHAMPION_ICONS = {
     path.stem: path for path in CHAMPION_ICON_DIR.glob("*.png") if path.is_file()
 }
 TIME_BUCKET_ORDER = ["morning", "afternoon", "evening", "night"]
-PROXY_LABEL_NOTE = (
-    "These labels compare you against your own season average at the same game "
-    "minute, not against the enemy laner. They describe deviation from your own "
-    "habit, not lane state. Per-minute opponent data is not parsed yet."
+DEATH_CONTEXT_NOTE = (
+    "Measured against the actual lane opponent at the same minute, from the "
+    "parsed timeline: where the death happened, who got it, whether anyone "
+    "helped, and how you stood in gold at that moment."
+)
+CLUSTER_PROXY_NOTE = (
+    "Cluster features remain heuristics. Roam detection undercounts, and the "
+    "grouping itself is weakly separated \u2014 see the open model decision."
 )
 VERDICT_NOTE = (
     "A win rate is called Positive or Negative only when its 95% confidence "
@@ -79,12 +83,12 @@ CLASS_TONE = {"Positive": "majority", "Negative": "minority", "Uncertain": "neut
 FEATURE_DISPLAY_NAMES = {
     "gold_delta": "Gold at 14 vs your own average",
     "total_deaths": "Total deaths",
-    "deaths_while_ahead": "Deaths above your own gold curve",
+    "deaths_while_ahead": "Deaths while ahead of your laner",
     "tilt_spiral_ratio": "Share of deaths within 3 min of the last",
     "max_death_streak": "Longest run of close-repeat deaths",
-    "total_roams": "Detected roams (undercounts short roams)",
+    "total_roams": "Detected roams",
     "avg_cs_sacrifice": "Avg CS given up during detected roams",
-    "roam_impact_rate": "Roam kill rate (assists not counted)",
+    "roam_impact_rate": "Roams that produced a kill or assist",
     "tilt_index": "Win rate over the previous 5 games",
 }
 MATCHUP_TABLE_CSS = """
@@ -676,15 +680,15 @@ with overview_tab:
         rate_figure.update_yaxes(tickformat=".0%", range=[0, 1])
         st.plotly_chart(rate_figure, use_container_width=True)
 
-    st.subheader("Games that broke from your own pattern")
-    st.caption(PROXY_LABEL_NOTE)
+    st.subheader("Leads kept and leads lost")
+    st.caption(CLUSTER_PROXY_NOTE)
     throw_summary = _query_throw_summary(conn, db_cache_key).iloc[0]
     throws = int(throw_summary["throws"])
     total = int(throw_summary["total"])
     throw_count, comeback_count, throw_rate = st.columns(3)
-    throw_count.metric("Strong start, lost", f"{throws:,}")
+    throw_count.metric("Team ahead at 14, lost", f"{throws:,}")
     comeback_count.metric(
-        "Weak start, won", f"{int(throw_summary['comebacks']):,}"
+        "Team behind at 14, won", f"{int(throw_summary['comebacks']):,}"
     )
     throw_rate.metric(
         "Share of games", f"{throws / total if total else 0:.1%}"
@@ -900,7 +904,7 @@ with patterns_tab:
 
     with st.expander("View full statistical breakdown", expanded=False):
         st.subheader("Cluster Feature Profile (z-scored per feature)")
-        st.caption(PROXY_LABEL_NOTE)
+        st.caption(CLUSTER_PROXY_NOTE)
         raw_centroids = cluster_summary.set_index("cluster_id")[FEATURE_COLS].astype(float)
         feature_std = raw_centroids.std(axis=0, ddof=0).replace(0, 1)
         normalized_centroids = (raw_centroids - raw_centroids.mean(axis=0)) / feature_std
@@ -942,24 +946,77 @@ with patterns_tab:
             f"{', '.join(missing_clusters)} excluded due to insufficient sample size per minute."
         )
 
-    st.subheader("Where deaths sit against your own gold curve")
-    st.caption(PROXY_LABEL_NOTE)
+    st.subheader("Why you died")
+    st.caption(DEATH_CONTEXT_NOTE)
     deaths = _query_deaths(conn, db_cache_key)
     if deaths.empty:
         st.info("No death data available.")
     else:
-        st.caption(f"Total deaths: {len(deaths):,}")
+        total_deaths = len(deaths)
+        by_laner = int(deaths["killed_by_laner"].sum())
+        solo = int(deaths["is_solo_death"].sum())
+        enemy_half = int(deaths["in_enemy_half"].fillna(False).sum())
+        unknown = total_deaths - int(deaths["context_known"].sum())
+
+        st.markdown(
+            f"- **{by_laner / total_deaths:.0%}** of your {total_deaths:,} deaths "
+            f"came from your lane opponent. The other "
+            f"**{1 - by_laner / total_deaths:.0%}** came from somewhere else on "
+            "the map."
+        )
+        st.markdown(
+            f"- **{solo / total_deaths:.0%}** were solo kills \u2014 nobody else "
+            "on the enemy team assisted."
+        )
+        st.markdown(
+            f"- **{enemy_half / total_deaths:.0%}** happened in the enemy half "
+            "of the map."
+        )
+        if unknown:
+            st.caption(
+                f"{unknown} death(s) lack a position or killer and are excluded "
+                "from the breakdowns below rather than guessed at."
+            )
+
+        zone_column, standing_column = st.columns(2)
+        with zone_column:
+            zone_counts = (
+                deaths["death_zone"].value_counts().rename_axis("zone")
+                .reset_index(name="deaths")
+            )
+            zone_figure = px.bar(
+                zone_counts, x="deaths", y="zone", orientation="h", text="deaths",
+                labels={"deaths": "Deaths", "zone": "Where"},
+            )
+            st.plotly_chart(zone_figure, use_container_width=True)
+        with standing_column:
+            phase_counts = (
+                deaths.groupby("phase").size().rename("deaths").reset_index()
+            )
+            phase_figure = px.bar(
+                phase_counts, x="deaths", y="phase", orientation="h", text="deaths",
+                category_orders={"phase": ["early", "laning", "post-laning"]},
+                labels={"deaths": "Deaths", "phase": "When"},
+            )
+            st.plotly_chart(phase_figure, use_container_width=True)
+
+        st.caption(
+            "Lane standing at the moment of death, against the actual opponent's "
+            "gold."
+        )
         death_categories = {
-            "Died before 6 min": "is_early_death",
-            "Died above own gold curve (pre-14)": "is_overextension_ahead",
-            "Died below own gold curve (pre-14)": "is_deficit_fight",
-            "Died within 3 min of previous death": "is_tilt_spiral",
-            "Died after 14 min, strong-start game": "is_post_laning_throw",
+            "Ahead of your laner, before 14 min": "is_overextension_ahead",
+            "Behind your laner, before 14 min": "is_deficit_fight",
+            "Ahead in lane, after 14 min": "is_post_laning_throw",
+            "Within 3 min of the previous death": "is_tilt_spiral",
+            "Before 6 min": "is_early_death",
         }
         death_counts = pd.DataFrame(
             {
                 "category": death_categories.keys(),
-                "deaths": [int(deaths[column].sum()) for column in death_categories.values()],
+                "deaths": [
+                    int(deaths[column].sum()) for column in death_categories.values()
+                ],
             }
         )
         death_figure = px.bar(

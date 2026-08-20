@@ -291,6 +291,7 @@ def build_deploy_db() -> dict[str, int]:
                     roam_start_min INTEGER NOT NULL,
                     roam_end_min INTEGER NOT NULL,
                     kills_during_roam INTEGER NOT NULL,
+                    assists_during_roam INTEGER NOT NULL,
                     roam_result VARCHAR NOT NULL,
                     PRIMARY KEY (match_id, roam_start_min, roam_end_min)
                 )
@@ -301,6 +302,7 @@ def build_deploy_db() -> dict[str, int]:
                     roam_start_min,
                     roam_end_min,
                     kills_during_roam,
+                    assists_during_roam,
                     roam_result
                 )
                 SELECT
@@ -308,6 +310,7 @@ def build_deploy_db() -> dict[str, int]:
                     r.roam_start_min,
                     r.roam_end_min,
                     r.kills_during_roam,
+                    r.assists_during_roam,
                     r.roam_result
                 FROM source.roam_windows r
                 JOIN id_map ids ON ids.original_match_id = r.match_id
