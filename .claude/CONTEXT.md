@@ -9,52 +9,43 @@ The only file in this repository that may contain project state — counts, metr
 
 ## Verified state
 
-Verified 2026-08-12 by querying committed artifacts and running the suite in this repository.
+Verified 2026-08-20 after a full data refresh: collect, rebuild, retrain, snapshot, and the suite.
 
 | Check | Value | How verified |
 |---|---|---|
-| Deploy DB matches | 396 | query on `data/lol_deploy.duckdb` |
-| Deploy DB timelines | 11,795 | same |
-| Deploy DB deaths | 3,117 | same |
-| Deploy DB roam windows | 513 | same |
-| Deploy DB events | 29,423 | same |
-| Deploy DB opponent timeline | 11,795 rows, 0 NULL `opp_gold` | same |
-| Deploy DB death context | 3,117 rows, 0 NULL position, 2 NULL killer | same |
-| Deploy DB file size | 5.1 MB | `ls` |
-| Deploy DB privacy audit | no `puuid`, 0 original Riot match IDs | query |
-| Deploy DB feature rows | 396 | same |
-| Deploy DB cluster labels | 396 | same |
-| Deploy DB cluster sizes | 176 / 88 / 118 / 14 | same |
-| Silhouette | 0.193 | `src.models` |
-| Deploy DB match date range | 2026-01-10 to 2026-07-18 | same |
-| Tests | 96 passed | `pytest tests -q` |
+| Deploy DB matches (S16 mid) | 483 | query on `data/lol_deploy.duckdb` |
+| Deploy DB timelines | 14,406 | same |
+| Deploy DB deaths | 3,775 | same |
+| Deploy DB events | 35,385 | same |
+| Deploy DB roam windows | 641 | same |
+| Deploy DB feature rows / labels | 483 / 483 | same |
+| Deploy DB cluster sizes | 213 / 105 / 142 / 23 | same |
+| Silhouette | 0.194 | `src.models` |
+| Deploy DB match date range | 2026-01-10 to 2026-08-19 | same |
+| Deploy DB file size | 5.3 MB | `ls` |
+| Deploy DB privacy audit | no `puuid`, 0 original Riot IDs, 1 distinct time-of-day | query |
+| Tests | 98 passed | `pytest tests -q` |
 | Lint | clean | `ruff check src tests dashboard scripts` |
-| `models/cluster_centroids.json` | tracked | `git ls-files` |
-| `data/lol_deploy.duckdb` | tracked, committed at `e4b8f07` | `git log` |
-| Worktree at session start | clean | `git status` |
+| Dashboard | 4 tabs, 0 exceptions | Streamlit `AppTest` |
 
-Local-only, gitignored, verified 2026-08-12 on this machine but not reproducible from the repository:
+Local-only, gitignored, verified 2026-08-20 on this machine:
 
 | Check | Value |
 |---|---|
-| `data/raw/` files | 1,188 (594 detail + 594 timeline) |
-| Source DB matches / timelines / deaths | 594 / 17,566 / 4,743 |
-| Source DB events | 99,342 (new, from the reparse) |
-| Source DB feature rows | 396 |
-| Source DB cluster labels | 396 |
-| Source DB match date range | 2025-09-11 to 2026-07-18 |
-| Opponent timeline coverage, S16 mid | 11,795 rows, 0 NULL opponent gold |
-| Death context coverage | 4,743 deaths, 0 NULL position, 5 NULL killer (executions and turrets) |
+| `data/raw/` files | 1,408 (704 detail + 704 timeline) |
+| Source DB matches / timelines / deaths / events | 704 / 20,856 / 5,592 / 118,701 |
+| Source DB match date range | 2025-09-11 to 2026-08-19 |
 
-The deploy-DB rows above describe the snapshot as rebuilt on 2026-08-12 from the reparsed source database.
+**Season 16 record, cross-checked against the user's own count.** The pipeline reports 577 Season 16 games at 296W-281L, a 51.3% win rate. The user reported 569 games at 292W-277L, also 51.3%. The rates agree exactly and the eight-game gap is consistent with remakes, which appear in match history but are usually excluded from a tracker's record. By role: MIDDLE 483, BOTTOM 56, UTILITY 28, TOP 7, JUNGLE 3. Only the 483 mid games reach the dashboard, per `PRODUCT.md` section 9.
 
-Not verified since 2026-07-18 — treat as stale until re-run:
+**Season boundary verified.** Patch 16.1 first appears on 2026-01-10, exactly the value of `CURRENT_SEASON_START`, and 15.24 runs through 2026-01-01. One game sits between those dates and is on 15.24.
 
-- Silhouette score 0.227.
-- Live app at `https://myishaa.streamlit.app/` serving the current snapshot. The snapshot is committed; the deployment itself has not been loaded and checked since.
-- The three files in `docs/screenshots/` predate the champion-icon and card UI.
+**Collection is complete for the analytical scope but not for all history.** The Riot API lists 856 ranked solo games; 704 are on disk. `DEFAULT_MATCH_COUNT` in `src/collector.py` caps a run at 500 IDs, and the 500th most recent is dated 2026-01-29, so the 152 missing games are all older than that and therefore pre-Season-16. They are out of analytical scope and were deliberately not collected. Raise the count if all-history coverage is ever wanted.
 
----
+Not verified since 2026-07-18:
+
+- Live app at `https://myishaa.streamlit.app/`. The snapshot is committed and pushed; the deployment itself has not been loaded and checked.
+- The three files in `docs/screenshots/` predate the four-tab UI.
 
 ## Open items
 
@@ -64,7 +55,7 @@ Ordered by dependency and by the `PRODUCT.md` section 13 priority ladder. Source
 
 Shipped in the same session as the audit. No rebuild was required; the deploy snapshot is unchanged.
 
-- U3 done — the invented 55% / 45% cutoff is gone. `src/features.py` now carries `wilson_interval()`, `personal_baseline()`, and `classify_winrate()`, and the dashboard colors a win rate only when its 95% Wilson interval clears the player's own baseline. Measured on the current snapshot: baseline 51.3%; of 71 matchup pairs, **zero** support a verdict; of 38 champion groupings, zero; of 60 opponent groupings, two — Sylas 17/23 = 74% CI [0.54, 0.87] Positive, Naafiri 0/8 = 0% CI [0.00, 0.32] Negative. Those figures come from the 2026-07-18 snapshot and will move on the next refresh.
+- U3 done — the invented 55% / 45% cutoff is gone, and as of 2026-08-20 the verdict rule is an exact one-sided binomial test against the player's own baseline rather than a Wilson interval that excludes it. Wilson is a normal approximation and is anti-conservative at small samples with extreme proportions: on the refreshed data a 4-0 record produced an interval whose lower bound cleared the 50.9% baseline by a thousandth and rendered as a verdict a single loss would reverse. The exact test gives that record p = 0.067 and withholds it while keeping 15-5 at p = 0.025. The interval is still computed and shown, because it communicates precision; the test decides. Measured on the 2026-08-20 snapshot at baseline 50.9%: **two verdicts across all groupings** — opponent TwistedFate 15/20 = 75% (p = 0.025, Positive) and opponent Naafiri 2/11 = 18% (p = 0.029, Negative). Zero of 483 champion or matchup-pair groupings clear.
 - U4 done — every mislabeled proxy renamed to what it measures. "Deaths while ahead" is now "Deaths above your own gold curve"; the death-context categories name the gold-curve comparison explicitly; "Estimated Throws / Comebacks" are now "Strong start, lost" and "Weak start, won". Cluster names `Behind & Spiraling` and `Ahead but Overextending` were deliberately left alone: they carry the same false ahead/behind semantics but are a user decision and are subject to M1.
 - Low-data framing done — the Champions empty state now says "not a result of 0%, a result of too few games", and the patch and time-of-day charts are labeled reference with their sample caveat.
 - Quick win done — `opp_gold_earned` is now surfaced as a `Gold Diff` column against the actual lane opponent, alongside `CS Diff`.

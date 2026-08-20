@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import duckdb
@@ -25,6 +26,7 @@ EARLY_DEATH_THRESHOLD_MIN: int = 6    # deaths before this minute are classified
 TILT_SPIRAL_GAP_MIN: int = 3          # max minutes between deaths to count as a spiral
 TILT_WINDOW_GAMES: int = 5            # rolling window size for tilt index
 WILSON_Z: float = 1.96                # 95% two-sided normal quantile
+SIGNIFICANCE_ALPHA: float = 0.05      # one-sided, matching the 95% interval
 WINRATE_GROUPINGS: dict[str, str] = {
     "champion": "champion_name",
     "opponent": "opp_champion_name",
@@ -76,8 +78,44 @@ def personal_baseline(conn: duckdb.DuckDBPyConnection) -> float:
     return float(result) if result is not None else 0.5
 
 
-def classify_winrate(low: float, high: float, baseline: float) -> str:
-    """Classify a win-rate interval against the player's baseline.
+def binomial_significance(wins: int, games: int, baseline: float) -> float:
+    """One-sided exact binomial p-value for a record against the baseline.
+
+    Used for the verdict instead of asking whether the Wilson interval excludes
+    the baseline. Wilson is a normal approximation and is anti-conservative at
+    small samples with extreme proportions: a 4-0 record produced an interval
+    whose lower bound cleared a 50.9% baseline by a thousandth, which rendered
+    as a verdict that a single loss would reverse. The exact test gives that
+    record p = 0.067 and withholds it, while keeping 15-5 at p = 0.025.
+
+    The interval is still computed and displayed -- it communicates precision.
+    This decides.
+    """
+    if games <= 0:
+        return 1.0
+    if not 0.0 < baseline < 1.0:
+        return 1.0
+    terms = (
+        range(wins, games + 1)
+        if wins / games > baseline
+        else range(0, wins + 1)
+    )
+    # Computed in log space: math.comb on a few hundred trials returns integers
+    # too large to multiply by a float.
+    log_n = math.lgamma(games + 1)
+    log_p, log_q = math.log(baseline), math.log1p(-baseline)
+    total = 0.0
+    for i in terms:
+        log_term = (
+            log_n - math.lgamma(i + 1) - math.lgamma(games - i + 1)
+            + i * log_p + (games - i) * log_q
+        )
+        total += math.exp(log_term)
+    return min(total, 1.0)
+
+
+def classify_winrate(wins: int, games: int, baseline: float) -> str:
+    """Classify a record against the player's baseline.
 
     Returns one of the PRODUCT.md section 7 classes. ``Skill-based`` is
     deliberately not emitted: separating "reliably close to baseline" from
@@ -85,11 +123,14 @@ def classify_winrate(low: float, high: float, baseline: float) -> str:
     which PRODUCT.md section 12 makes a user decision. Until that number
     exists, both cases are honestly reported as Uncertain.
     """
-    if low > baseline:
-        return "Positive"
-    if high < baseline:
-        return "Negative"
-    return "Uncertain"
+    if games <= 0:
+        return "Uncertain"
+    rate = wins / games
+    if rate == baseline:
+        return "Uncertain"
+    if binomial_significance(wins, games, baseline) >= SIGNIFICANCE_ALPHA:
+        return "Uncertain"
+    return "Positive" if rate > baseline else "Negative"
 
 
 def games_to_verdict(
@@ -104,6 +145,9 @@ def games_to_verdict(
     """
     if winrate == baseline:
         return None
+    # Deliberately the interval, not the exact test: this is an estimate of how
+    # much more play would settle the question, and running the exact test for
+    # every candidate sample size would make the search quadratic.
     for games in range(2, max_games + 1):
         low, high = wilson_interval(round(winrate * games), games)
         if low > baseline or high < baseline:
@@ -141,7 +185,8 @@ def _add_winrate_interval(
     df["winrate_lo"] = [low for low, _ in bounds]
     df["winrate_hi"] = [high for _, high in bounds]
     df["matchup_class"] = [
-        classify_winrate(low, high, baseline) for low, high in bounds
+        classify_winrate(round(rate * games), int(games), baseline)
+        for rate, games in zip(df[rate_column], df["games"], strict=True)
     ]
     df["games_needed"] = [
         None
