@@ -18,6 +18,7 @@ from src.features import (  # noqa: E402
     champion_matchup_stats,
     champion_winrates,
     death_context,
+    opponent_archetype_winrates,
     personal_baseline,
 )
 from src.models import (  # noqa: E402
@@ -247,6 +248,52 @@ def _win_rate_chip(cell: str) -> str:
     )
 
 
+def _archetype_rows(frame: pd.DataFrame, baseline: float) -> str:
+    """Render opponent archetypes with direction, interval, and what is missing."""
+    rows = []
+    for row in frame.itertuples(index=False):
+        if not row.verdict_eligible:
+            tone, verdict = "neutral", "Reference only"
+            note = "Mixes builds — a single label would misrepresent it."
+        elif row.matchup_class == "Positive":
+            tone, verdict = "majority", "Positive"
+            note = "Clears your baseline."
+        elif row.matchup_class == "Negative":
+            tone, verdict = "minority", "Negative"
+            note = "Falls below your baseline."
+        else:
+            tone, verdict = "neutral", "Uncertain"
+            direction = "above" if row.winrate > baseline else "below"
+            if row.games_needed and row.games_needed == row.games_needed:
+                more = int(row.games_needed) - int(row.games)
+                note = (
+                    f"Sits {direction} baseline, not yet separable from noise. "
+                    f"About {more:,} more games at this rate would settle it."
+                    if more > 0
+                    else f"Sits {direction} baseline; borderline."
+                )
+            else:
+                note = "Sits on your baseline; no sample size separates them."
+
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(row.archetype))}</td>"
+            f"<td>{int(row.games):,}</td>"
+            f"<td>{row.winrate:.1%}</td>"
+            f"<td>{row.winrate_lo:.0%}&ndash;{row.winrate_hi:.0%}</td>"
+            f'<td><span class="matchup-win-rate matchup-win-rate-{tone}">'
+            f"{verdict}</span></td>"
+            f"<td>{note}</td></tr>"
+        )
+    return (
+        f"<style>{MATCHUP_TABLE_CSS}</style>"
+        '<div class="matchup-table-wrap"><table class="matchup-table">'
+        "<thead><tr><th>Opponent archetype</th><th>Games</th><th>Win rate</th>"
+        "<th>95% CI</th><th>Verdict</th><th>Reading</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
 def _verdict_lines(frame: pd.DataFrame, subject: str) -> list[str]:
     """One plain sentence per grouping whose win rate clears the baseline."""
     verdicts = frame[frame["matchup_class"] != "Uncertain"]
@@ -399,6 +446,13 @@ def _query_winrates(
     _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int], dimension: str
 ) -> pd.DataFrame:
     return champion_winrates(_conn, dimension)
+
+
+@st.cache_data
+def _query_archetypes(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
+) -> pd.DataFrame:
+    return opponent_archetype_winrates(_conn)
 
 
 @st.cache_data
@@ -597,6 +651,15 @@ with champions_tab:
                 "opp_avg_kda": "Opponent Avg KDA",
             }
         )
+        st.subheader("By opponent archetype")
+        st.caption(
+            "Individual champions are too thin to judge, so opponents are "
+            "grouped by how they play. This is the level where a verdict "
+            "becomes possible. Champions whose archetype depends on their "
+            "build are held out rather than folded into a bucket."
+        )
+        st.html(_archetype_rows(_query_archetypes(conn, db_cache_key), baseline))
+
         st.subheader("Individual matchups — reference")
         st.caption(
             "Every pair below runs 2 to 9 games, and none of them clears the "

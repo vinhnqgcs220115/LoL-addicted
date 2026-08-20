@@ -8,6 +8,8 @@ from src.features import (
     champion_matchup_stats,
     classify_winrate,
     death_context,
+    games_to_verdict,
+    opponent_archetype_winrates,
     is_throw_game,
     roam_timing,
     tilt_index,
@@ -330,3 +332,41 @@ def test_classify_winrate_uses_baseline_not_coin_flip() -> None:
     assert classify_winrate(0.30, 0.90, baseline) == "Uncertain"
     # Skill-based needs a user-supplied effect size and must not be invented.
     assert classify_winrate(0.59, 0.61, baseline) == "Uncertain"
+
+
+def test_games_to_verdict_scales_with_the_gap_to_baseline() -> None:
+    """A near-baseline rate needs far more games than an extreme one."""
+    baseline = 0.50
+
+    near = games_to_verdict(0.55, baseline)
+    far = games_to_verdict(0.90, baseline)
+    assert near is not None and far is not None
+    assert near > far
+
+    # A rate sitting exactly on the baseline never separates, at any sample size.
+    assert games_to_verdict(0.50, baseline) is None
+    # Works in both directions.
+    assert games_to_verdict(0.10, baseline) is not None
+
+
+def test_opponent_archetype_winrates_holds_out_build_dependent() -> None:
+    """A build-dependent champion gets its own row and never carries a verdict."""
+    conn = _make_conn()
+    conn.execute("""
+        INSERT INTO matches VALUES (
+            'S16_SYLAS', 'puuid1', ?, '16.1', 420,
+            1800, 1, 'Zoe', 100, 'MIDDLE', 'MID', true,
+            5, 2, 3, 4.0, 180, 6.0, 12000, 20000, 30,
+            'Sylas', 150, 11000, 2, 3, 1
+        )
+    """, [S16_DATETIME_D])
+    frame = opponent_archetype_winrates(conn)
+    conn.close()
+
+    by_archetype = frame.set_index("archetype")
+    assert "Build-dependent" in by_archetype.index
+    assert not bool(by_archetype.loc["Build-dependent", "verdict_eligible"])
+    assert by_archetype.loc["Build-dependent", "matchup_class"] == "Uncertain"
+    assert int(by_archetype.loc["Build-dependent", "games"]) == 1
+    # Sylas must not have been folded into a real archetype bucket.
+    assert int(by_archetype.loc["Control Mages", "games"]) == 4

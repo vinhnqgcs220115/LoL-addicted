@@ -6,6 +6,7 @@ import duckdb
 import numpy as np
 import pandas as pd
 
+from src.archetypes import champion_archetype, is_verdict_eligible
 from src.processor import ROAM_WINDOW_COLUMNS
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -89,6 +90,25 @@ def classify_winrate(low: float, high: float, baseline: float) -> str:
     return "Uncertain"
 
 
+def games_to_verdict(
+    winrate: float, baseline: float, max_games: int = 2000
+) -> int | None:
+    """Games needed at the observed rate before the interval clears the baseline.
+
+    Turns "Uncertain" from a dead end into a target: it says how much more of
+    the same play it would take to know. Returns ``None`` when the observed rate
+    sits on the baseline, where no sample size ever separates them, and when the
+    answer exceeds ``max_games``.
+    """
+    if winrate == baseline:
+        return None
+    for games in range(2, max_games + 1):
+        low, high = wilson_interval(round(winrate * games), games)
+        if low > baseline or high < baseline:
+            return games
+    return None
+
+
 def _add_winrate_interval(
     df: pd.DataFrame, rate_column: str, baseline: float
 ) -> pd.DataFrame:
@@ -102,6 +122,10 @@ def _add_winrate_interval(
     df["matchup_class"] = [
         classify_winrate(low, high, baseline) for low, high in bounds
     ]
+    df["games_needed"] = [
+        None if matchup_class != "Uncertain" else games_to_verdict(rate, baseline)
+        for matchup_class, rate in zip(df["matchup_class"], df[rate_column], strict=True)
+    ]
     return df
 
 
@@ -113,7 +137,8 @@ def champion_winrates(
     Pair-level matchup slices are too small to support a verdict; these two
     single-axis groupings are where a defensible one can still exist.
 
-    Columns: name, games, wins, winrate, winrate_lo, winrate_hi, matchup_class.
+    Columns: name, games, wins, winrate, winrate_lo, winrate_hi, matchup_class,
+    games_needed.
     """
     if dimension not in WINRATE_GROUPINGS:
         raise ValueError(
@@ -137,11 +162,55 @@ def champion_winrates(
     if df.empty:
         return pd.DataFrame(
             columns=["name", "games", "wins", "winrate",
-                     "winrate_lo", "winrate_hi", "matchup_class"]
+                     "winrate_lo", "winrate_hi", "matchup_class", "games_needed"]
         )
 
     df["winrate"] = df["wins"] / df["games"]
     return _add_winrate_interval(df, "winrate", personal_baseline(conn))
+
+
+def opponent_archetype_winrates(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Aggregate win rate by the opponent's champion archetype.
+
+    Archetype buckets are the smallest grouping in this dataset large enough to
+    support a verdict; individual matchup pairs run 2-9 games and cannot.
+    Build-dependent and unclassified champions are reported as their own rows
+    and marked ineligible rather than folded into a bucket they would distort.
+
+    Columns: archetype, games, wins, winrate, winrate_lo, winrate_hi,
+    matchup_class, verdict_eligible.
+    """
+    df = conn.execute(
+        """
+        SELECT opp_champion_name AS name, win
+        FROM matches
+        WHERE game_datetime >= ?
+          AND team_position = ?
+          AND opp_champion_name IS NOT NULL
+        """,
+        [CURRENT_SEASON_START, ANALYSIS_ROLE],
+    ).df()
+
+    columns = ["archetype", "games", "wins", "winrate", "winrate_lo",
+               "winrate_hi", "matchup_class", "games_needed", "verdict_eligible"]
+    if df.empty:
+        return pd.DataFrame(columns=columns)
+
+    df["archetype"] = df["name"].map(champion_archetype)
+    grouped = (
+        df.groupby("archetype")
+        .agg(games=("win", "count"), wins=("win", "sum"))
+        .reset_index()
+    )
+    grouped["wins"] = grouped["wins"].astype(int)
+    grouped["winrate"] = grouped["wins"] / grouped["games"]
+    grouped = _add_winrate_interval(grouped, "winrate", personal_baseline(conn))
+
+    grouped["verdict_eligible"] = grouped["archetype"].map(is_verdict_eligible)
+    # An ineligible grouping is reference only; it must never read as a verdict.
+    grouped.loc[~grouped["verdict_eligible"], "matchup_class"] = "Uncertain"
+
+    return grouped.sort_values("games", ascending=False).reset_index(drop=True)[columns]
 
 
 def _time_bucket(hour: int) -> str:
@@ -437,7 +506,7 @@ def champion_matchup_stats(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     Filters to matchups with at least 2 games.
     Columns: champion_name, opp_champion_name, games, our_avg_cs, opp_avg_cs,
     cs_diff, gold_diff, our_winrate, winrate_lo, winrate_hi, matchup_class,
-    our_avg_kda, opp_avg_kda.
+    games_needed, our_avg_kda, opp_avg_kda.
 
     ``gold_diff`` is end-of-game gold against the actual lane opponent — the
     only opponent-anchored gold figure the schema currently carries. Per-minute
@@ -491,6 +560,7 @@ def champion_matchup_stats(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
             "champion_name", "opp_champion_name", "games",
             "our_avg_cs", "opp_avg_cs", "cs_diff", "gold_diff",
             "our_winrate", "winrate_lo", "winrate_hi", "matchup_class",
+            "games_needed",
             "our_avg_kda", "opp_avg_kda",
         ]
     ].reset_index(drop=True)
