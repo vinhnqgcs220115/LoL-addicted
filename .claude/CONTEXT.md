@@ -64,6 +64,8 @@ Still open at P0:
 
 ### P1 — the product layer. Buildable from `matches` alone; not blocked by the reparse.
 
+Pages that exist today: Overview, Champions, Matchups, Patterns. `PRODUCT.md` section 3 specifies six. Match History is blocked on the privacy decision below; Match Detail is blocked on the stage 0 reparse. The sidebar champion filter scopes Champions and Matchups only — Overview and Patterns ignore it, and the caption now says so.
+
 - Match History page — "Which games should I inspect?" Filters and sorting by date, champion, opponent, role, result, queue, season, and date range. Optimize for fast scanning over density. All fields already exist in `matches`.
 - Champion Pool done 2026-08-12 — `champion_pool()` returns games, W-L, win rate with interval and class, KDA, CS/min, gold/min, damage/min, average duration, and CS and gold differential against the actual lane opponent, for all 38 champions played in scope.
 - Own-archetype composition done — the Champions tab shows the pool grouped by the archetype of the champion the player picked. Measured 2026-08-12: Burst Mages are 52.0% of the pool at 55.8% over 206 games; Control Mages 25.0% at 49.5% over 99; Assassins 9.1% at 38.9% over 36. All Uncertain against the 51.3% baseline, but the assassin figure is the weakest own-archetype number in the pool and matches the opponent-side assassin result.
