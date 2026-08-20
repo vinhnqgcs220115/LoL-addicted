@@ -23,6 +23,18 @@ sys.path.insert(0, str(BASE_DIR))
 from src.features import ANALYSIS_ROLE, CURRENT_SEASON_START  # noqa: E402
 
 
+#: Published timestamps are truncated to midnight UTC. The exact kickoff time,
+#: combined with the patch, both mid champions, and the per-death killer
+#: sequence, is enough to locate a specific game on third-party match sites.
+#: The date alone keeps every season, patch, and date-range filter working --
+#: they are all ">=" comparisons -- while removing that precision. Time-of-day
+#: analysis is unaffected: hour_of_day and time_bucket are computed in the
+#: source database before publishing.
+#: The value stays ISO 8601 so string comparison against CURRENT_SEASON_START
+#: behaves exactly as before; a bare date would sort before the season start.
+COARSE_DATETIME_SQL = "substr({alias}.game_datetime, 1, 10) || 'T00:00:00+00:00'"
+
+
 # Keep in sync with src.features.build_feature_matrix().
 FEATURE_MATRIX_COLUMNS = (
     "match_id",
@@ -140,7 +152,7 @@ def build_deploy_db() -> dict[str, int]:
                 INSERT INTO matches
                 SELECT
                     ids.surrogate_match_id,
-                    m.game_datetime,
+                    substr(m.game_datetime, 1, 10) || 'T00:00:00+00:00' AS game_datetime,
                     m.game_version,
                     m.queue_id,
                     m.game_duration_sec,
@@ -323,6 +335,8 @@ def build_deploy_db() -> dict[str, int]:
             feature_select_sql = ",\n                    ".join(
                 "ids.surrogate_match_id"
                 if column == "match_id"
+                else COARSE_DATETIME_SQL.format(alias="f")
+                if column == "game_datetime"
                 else f"f.{_quote_identifier(column)}"
                 for column in FEATURE_MATRIX_COLUMNS
             )

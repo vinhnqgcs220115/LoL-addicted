@@ -149,7 +149,8 @@ M1 remains open and is unaffected: the remap makes the clusters maintainable, it
 ### Cross-cutting
 
 - Metric definitions. `PRODUCT.md` section 7 requires every important metric to document source, calculation, assumptions, and limitations. No file owns this yet. Write it once the metrics stabilize after stage 0, not before.
-- Privacy decision before Match History or Match Detail ships. The known issue below accepts `game_datetime` in the deploy DB as portfolio-scale risk, but that assessment predates any per-game view. A dated game list plus champion plus patch is materially more identifying than a season aggregate. Not an agent decision.
+- Privacy: timestamps are coarsened (see known issues), which removes the strongest identifier. A per-game view would still expose a dated game list; revisit before Match History or Match Detail ships.
+- Superseded — original entry: privacy decision before Match History or Match Detail ships. The known issue below accepts `game_datetime` in the deploy DB as portfolio-scale risk, but that assessment predates any per-game view. A dated game list plus champion plus patch is materially more identifying than a season aggregate. Not an agent decision.
 - Recapture `docs/screenshots/` after the UI rework, not before.
 - Re-verify the live deployment and record the result here.
 
@@ -161,7 +162,7 @@ Accepted limitations. Not scheduled work.
 - Roam detection stays heuristic. A roam is a minute frame more than 2,500 units off the mid diagonal, so a detour into the player's own jungle counts as one, and the corridor width itself is a constant rather than a measured lane boundary. Impact is a kill or assist during the window, which cannot see a roam that created pressure without a takedown.
 - Cluster 3 (n=7) is an outlier bucket, not an under-sampled archetype. Its defining feature `avg_cs_sacrifice` sits at z = +7.01, the signature of the roam detector misfiring rather than of a behavior pattern awaiting more games. Corrected 2026-08-12; the previous entry recorded it as deliberately uncharacterized. Clusters 0/1/2 are named from centroid review and are subject to the M1 decision above.
 - The centroid-binding guard has no absolute-distance cutoff. It refuses to persist a retrain whenever any cluster's centroid is no longer nearest its own previously-named centroid — including a clean bijective permutation — and performs no remapping.
-- `game_datetime` is retained in the deploy DB. Timestamps plus champion and version data could identify matches on public sites; accepted for a portfolio project.
+- `game_datetime` in the deploy DB is truncated to midnight UTC as of 2026-08-12, before the first public push carrying per-death killer champions. The exact kickoff time plus the patch, both mid champions, and the death sequence was enough to locate a game on third-party match sites. Every consumer uses `>=` comparisons, so season, patch and date-range filtering are unaffected, and `hour_of_day` and `time_bucket` are computed in the source database before publishing, so time-of-day analysis survives. Locked down by `test_deploy_db_never_publishes_a_precise_timestamp`.
 
 ## Backlog
 
