@@ -79,7 +79,7 @@ def _make_conn() -> duckdb.DuckDBPyConnection:
                 7500 + minute * 10, 7500 + minute * 10,
                 # Opponent trails slightly; S16_B's team is behind at 14 so the
                 # throw and comeback definitions have something real to read.
-                gold - 200, cs - 5, minute * 95,
+                gold - 200, max(cs - 5, 0), minute * 95,
                 gold * 5, (gold * 5) + (2000 if match_id == "S16_B" else -2000),
             ])
 

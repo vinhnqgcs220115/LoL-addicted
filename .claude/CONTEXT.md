@@ -157,7 +157,8 @@ M1 remains open and is unaffected: the remap makes the clusters maintainable, it
 
 Accepted limitations. Not scheduled work.
 
-- Throw, Comeback, Overextension, Deficit Fight, Post-Laning Throw, and roam-impact metrics are heuristic proxies from single-player timeline data. The UI qualifies them. True ground truth needs fuller team, opponent, objective, and vision state.
+- Throw, Comeback, Overextension, Deficit Fight and Post-Laning Throw are **no longer proxies** as of 2026-08-12. Throw and Comeback read a real team gold lead at minute 14; the three death labels compare the player to the actual lane opponent at the minute of death. What remains heuristic is roam detection and the cluster labels, below.
+- Roam detection stays heuristic. A roam is a minute frame more than 2,500 units off the mid diagonal, so a detour into the player's own jungle counts as one, and the corridor width itself is a constant rather than a measured lane boundary. Impact is a kill or assist during the window, which cannot see a roam that created pressure without a takedown.
 - Cluster 3 (n=7) is an outlier bucket, not an under-sampled archetype. Its defining feature `avg_cs_sacrifice` sits at z = +7.01, the signature of the roam detector misfiring rather than of a behavior pattern awaiting more games. Corrected 2026-08-12; the previous entry recorded it as deliberately uncharacterized. Clusters 0/1/2 are named from centroid review and are subject to the M1 decision above.
 - The centroid-binding guard has no absolute-distance cutoff. It refuses to persist a retrain whenever any cluster's centroid is no longer nearest its own previously-named centroid — including a clean bijective permutation — and performs no remapping.
 - `game_datetime` is retained in the deploy DB. Timestamps plus champion and version data could identify matches on public sites; accepted for a portfolio project.
