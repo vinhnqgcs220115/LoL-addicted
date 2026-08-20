@@ -89,7 +89,7 @@ Pages that exist today: Overview, Champions, Matchups, Patterns. `PRODUCT.md` se
 - Pocket-pick detection done — `pocket_picks()` labels champions outside the core pool that beat the baseline, using the four labels fixed in `PRODUCT.md` section 6. "Rarely played" is derived from the player's own usage rather than a game count: the core pool is the smallest set of champions covering half of all games, currently Zoe, Hwei, Viktor, Ahri, and Syndra. Measured 2026-08-12: zero Potential Pocket Picks, zero Matchup-specific, three Emerging Picks (Mel 10/18, Aurora 8/13, Galio 7/11), and seven Insufficient Data including five champions with a single game at 100%. Those five are exactly the outliers section 6 forbids promoting, and the label vocabulary is what keeps them from becoming recommendations.
 - Overview rebuilt around "How am I doing, and what should I investigate?" — current form, streak, strongest and weakest champions, pool composition, high-confidence insights only.
 
-### Stage 0 — the reparse. Done 2026-08-12, except the deploy snapshot.
+### Stage 0 — the reparse. Done 2026-08-12, snapshot included.
 
 D1 and D2 are both implemented and the source database has been rebuilt from the immutable raw files. No Riot API calls were made.
 
@@ -138,7 +138,7 @@ M1 remains open and is unaffected: the remap makes the clusters maintainable, it
   Reading: the circularity is not a feature-quality problem. A single player's match data has one dominant axis of variation — how the game went — and any unsupervised partition recovers it. Three independent feature sets, eight cluster counts, same answer.
 
   Recommended: retire K-Means and replace it with explicit named patterns computed directly from the reparsed opponent data, which the schema now supports (for example: lost lane by minute 14 and then died away from mid; won lane and gave the lead back before the first objective). Explicit patterns are checkable, nameable, stable across refreshes, and carry no ID binding. Retiring K-Means also dissolves the permutation decision below rather than answering it. Still a user decision.
-- Cluster-ID permutation, open since 2026-07-18. The alternative to retiring K-Means is to accept the relabeling and remap IDs to the nearest named centroid on persist, so names follow their own clusters and the guard only fires on genuine drift. Verified 2026-08-12 that the current permutation is a clean bijection with matching sizes (new 0/1/2/3 of size 7/128/188/73 map to named 3/2/0/1 of the same sizes) and matching feature means, so accepting it would leave dashboard output unchanged.
+- Cluster-ID permutation — **resolved 2026-08-12**, open since 2026-07-18. IDs are now remapped to the nearest named centroid on persist, so the guard fires on genuine drift rather than on renumbering. This makes the clusters maintainable and is independent of M1, which asks whether they should exist at all.
 - Recurring pattern detection on repeated evidence. One unusual game is never a pattern.
 
 ### Cross-cutting
