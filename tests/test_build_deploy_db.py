@@ -36,8 +36,9 @@ def _create_source_db(path: Path, feature_columns: tuple[str, ...]) -> None:
         conn.execute(
             """
             INSERT INTO roam_windows
-                (match_id, roam_start_min, roam_end_min, kills_during_roam, roam_result)
-            VALUES ('MATCH_1', 5, 6, 1, 'impact')
+                (match_id, roam_start_min, roam_end_min, kills_during_roam,
+                 assists_during_roam, roam_result)
+            VALUES ('MATCH_1', 5, 6, 1, 2, 'impact')
             """
         )
         conn.execute(
@@ -185,3 +186,33 @@ def test_build_deploy_db_carries_the_opponent_timeline(
         ).fetchone()
 
     assert row == (800, 15, 600, 1, 2000)
+
+
+def test_deploy_db_never_publishes_a_precise_timestamp(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Published timestamps are truncated to midnight UTC.
+
+    The exact kickoff time, with the patch, both mid champions and the per-death
+    killer sequence, is enough to locate a specific game on a third-party match
+    site. This is a privacy invariant, so it gets a test rather than a comment.
+    """
+    source_path = tmp_path / "source.duckdb"
+    deploy_path = tmp_path / "deploy.duckdb"
+    _create_source_db(source_path, build_deploy_db.FEATURE_MATRIX_COLUMNS)
+    with duckdb.connect(str(source_path)) as conn:
+        conn.execute(
+            "UPDATE matches SET game_datetime = '2026-03-05T14:22:31.417000+00:00'"
+        )
+    monkeypatch.setattr(build_deploy_db, "SOURCE_DB", source_path)
+    monkeypatch.setattr(build_deploy_db, "DEPLOY_DB", deploy_path)
+
+    build_deploy_db.build_deploy_db()
+
+    with duckdb.connect(str(deploy_path), read_only=True) as conn:
+        published = conn.execute("SELECT game_datetime FROM matches").fetchone()[0]
+
+    assert published == "2026-03-05T00:00:00+00:00"
+    # Still ISO 8601, so the season filter's string comparison is unaffected.
+    assert published >= build_deploy_db.CURRENT_SEASON_START

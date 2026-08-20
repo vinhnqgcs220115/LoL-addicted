@@ -16,7 +16,7 @@ Verified 2026-08-12 by querying committed artifacts and running the suite in thi
 | Deploy DB matches | 396 | query on `data/lol_deploy.duckdb` |
 | Deploy DB timelines | 11,795 | same |
 | Deploy DB deaths | 3,117 | same |
-| Deploy DB roam windows | 84 | same |
+| Deploy DB roam windows | 513 | same |
 | Deploy DB events | 29,423 | same |
 | Deploy DB opponent timeline | 11,795 rows, 0 NULL `opp_gold` | same |
 | Deploy DB death context | 3,117 rows, 0 NULL position, 2 NULL killer | same |
@@ -24,9 +24,10 @@ Verified 2026-08-12 by querying committed artifacts and running the suite in thi
 | Deploy DB privacy audit | no `puuid`, 0 original Riot match IDs | query |
 | Deploy DB feature rows | 396 | same |
 | Deploy DB cluster labels | 396 | same |
-| Deploy DB cluster sizes | 188 / 73 / 128 / 7 | same |
+| Deploy DB cluster sizes | 176 / 88 / 118 / 14 | same |
+| Silhouette | 0.193 | `src.models` |
 | Deploy DB match date range | 2026-01-10 to 2026-07-18 | same |
-| Tests | 94 passed | `pytest tests -q` |
+| Tests | 96 passed | `pytest tests -q` |
 | Lint | clean | `ruff check src tests dashboard scripts` |
 | `models/cluster_centroids.json` | tracked | `git ls-files` |
 | `data/lol_deploy.duckdb` | tracked, committed at `e4b8f07` | `git log` |
@@ -112,12 +113,16 @@ D1 and D2 are both implemented and the source database has been rebuilt from the
 
 M1 remains open and is unaffected: the remap makes the clusters maintainable, it does not make them less circular.
 
+**Retrained 2026-08-12 after D3 and D4 changed three model features.** `total_roams`, `avg_cs_sacrifice` and `roam_impact_rate` all moved when roam detection was fixed, and `deaths_while_ahead` now measures a real lane lead. The guard found a one-to-one mapping (`0 → 0, 1 → 2, 2 → 3, 3 → 1`) and persisted. Cluster sizes are now 176 / 88 / 118 / 14 against the previous 188 / 73 / 128 / 7, and silhouette fell from 0.227 to **0.193**.
+
+**Known limitation, surfaced by this run:** the guard compares centroid positions, not cluster membership. It cannot tell "the same clusters were renumbered" from "the features were redefined and the new clusters happen to sit near the old centroids". This run was the second kind. The centroid semantics still line up — cluster 0 is behind and dying, 1 is ahead and overextending, 2 is clean, 3 is the outlier bucket — but the games inside them changed, and the names deserve a human re-review rather than a silent pass. The falling silhouette also strengthens the M1 recommendation.
+
 ### P2 — advanced analysis. Blocked by stage 0.
 
 - Match Detail page — "What actually happened in this game?" Lane phase with CS, XP, gold, and level differences, first recall, plates, solo kills; a chronological timeline of important events; per-death context.
-- Death context rebuilt on real evidence — location, nearby champions, objective state, roam state. Must state its own confidence and must say "unknown" rather than guess.
-- D3 — fix roam detection. Verified 2026-08-12 by re-running the detector over the deploy DB: the `len(block) < 2` guard in `roam_timing()` alone accounts for the entire shortfall. Minimum contiguous minutes of 1 yields 308 of 390 games and 513 windows; the current value of 2 yields 81 games and 84 windows, exactly what is persisted; 3 yields 15. Riot samples once per minute and a mid roam takes 30-60 seconds, so the typical roam occupies one frame. `kills_during_roam` also ignores assists, which D2 supplies.
-- D4 — redefine Throw and Comeback on real opponent gold difference at minute 14, or retire them.
+- Death context rebuilt on real evidence, done 2026-08-12. `death_context()` now reads position, killer champion, assist count, and the opponent's gold at that minute. Measured over 3,117 Season 16 mid deaths: **3,115 have full context**; 1,205 (39%) came from the lane opponent and the other 61% from elsewhere on the map; 1,024 (33%) were solo kills with no assist; 1,129 (36%) happened in the enemy half. By zone: 1,815 in the mid corridor, 748 bot side, 554 top side. By phase: 404 before 6 minutes, 826 in laning, 1,887 after. `is_overextension_ahead` and `is_deficit_fight` keep their names but now compare the player to the actual opponent rather than to their own season average. The two deaths lacking position or killer are reported as unknown, not guessed.
+- D3 done 2026-08-12 — the `len(block) < 2` guard is gone, so a roam occupying a single minute frame is no longer discarded. Detection went from 84 windows across 81 games to **513 windows across 308 games**. `roam_windows` gained `assists_during_roam`, filled from the parsed event stream: 194 assists are now counted, and `roam_result` reads a kill *or* an assist as impact, so a mid laner collapsing on a side lane is no longer scored as a failed roam. 245 of the 513 windows now register impact.
+- D4 done 2026-08-12 — Throw and Comeback are defined on `team_gold - enemy_team_gold` at the frame closest to minute 14, which the reparse made available. A throw is the team being ahead and losing; a comeback the reverse. The boundary is zero, so no lead size is invented. Measured: 202 of 388 games ahead at 14 and 56 of those lost; 186 behind and 55 of those won. Team gold at 14 averages +1,918 in wins and -1,710 in losses. `feature_matrix` gained `team_lead_14` and `lane_gold_diff_14`; `gold_delta` is unchanged because it is a model feature and altering it would redefine the clusters.
 
 ### P3 — higher-level intelligence. Blocked by P2.
 
@@ -144,7 +149,8 @@ M1 remains open and is unaffected: the remap makes the clusters maintainable, it
 ### Cross-cutting
 
 - Metric definitions. `PRODUCT.md` section 7 requires every important metric to document source, calculation, assumptions, and limitations. No file owns this yet. Write it once the metrics stabilize after stage 0, not before.
-- Privacy decision before Match History or Match Detail ships. The known issue below accepts `game_datetime` in the deploy DB as portfolio-scale risk, but that assessment predates any per-game view. A dated game list plus champion plus patch is materially more identifying than a season aggregate. Not an agent decision.
+- Privacy: timestamps are coarsened (see known issues), which removes the strongest identifier. A per-game view would still expose a dated game list; revisit before Match History or Match Detail ships.
+- Superseded — original entry: privacy decision before Match History or Match Detail ships. The known issue below accepts `game_datetime` in the deploy DB as portfolio-scale risk, but that assessment predates any per-game view. A dated game list plus champion plus patch is materially more identifying than a season aggregate. Not an agent decision.
 - Recapture `docs/screenshots/` after the UI rework, not before.
 - Re-verify the live deployment and record the result here.
 
@@ -152,10 +158,11 @@ M1 remains open and is unaffected: the remap makes the clusters maintainable, it
 
 Accepted limitations. Not scheduled work.
 
-- Throw, Comeback, Overextension, Deficit Fight, Post-Laning Throw, and roam-impact metrics are heuristic proxies from single-player timeline data. The UI qualifies them. True ground truth needs fuller team, opponent, objective, and vision state.
+- Throw, Comeback, Overextension, Deficit Fight and Post-Laning Throw are **no longer proxies** as of 2026-08-12. Throw and Comeback read a real team gold lead at minute 14; the three death labels compare the player to the actual lane opponent at the minute of death. What remains heuristic is roam detection and the cluster labels, below.
+- Roam detection stays heuristic. A roam is a minute frame more than 2,500 units off the mid diagonal, so a detour into the player's own jungle counts as one, and the corridor width itself is a constant rather than a measured lane boundary. Impact is a kill or assist during the window, which cannot see a roam that created pressure without a takedown.
 - Cluster 3 (n=7) is an outlier bucket, not an under-sampled archetype. Its defining feature `avg_cs_sacrifice` sits at z = +7.01, the signature of the roam detector misfiring rather than of a behavior pattern awaiting more games. Corrected 2026-08-12; the previous entry recorded it as deliberately uncharacterized. Clusters 0/1/2 are named from centroid review and are subject to the M1 decision above.
 - The centroid-binding guard has no absolute-distance cutoff. It refuses to persist a retrain whenever any cluster's centroid is no longer nearest its own previously-named centroid — including a clean bijective permutation — and performs no remapping.
-- `game_datetime` is retained in the deploy DB. Timestamps plus champion and version data could identify matches on public sites; accepted for a portfolio project.
+- `game_datetime` in the deploy DB is truncated to midnight UTC as of 2026-08-12, before the first public push carrying per-death killer champions. The exact kickoff time plus the patch, both mid champions, and the death sequence was enough to locate a game on third-party match sites. Every consumer uses `>=` comparisons, so season, patch and date-range filtering are unaffected, and `hour_of_day` and `time_bucket` are computed in the source database before publishing, so time-of-day analysis survives. Locked down by `test_deploy_db_never_publishes_a_precise_timestamp`.
 
 ## Backlog
 
