@@ -113,7 +113,23 @@ This is the same permutation recorded on 2026-07-18 and left open on 2026-07-19;
 ### P3 — higher-level intelligence. Blocked by P2.
 
 - D5 — rebuild the feature set. `total_deaths`, `tilt_spiral_ratio`, and `max_death_streak` correlate pairwise at r = 0.75-0.82, so K-Means is close to one-dimensional on death count. `roam_impact_rate` is the neutral fill value 0.5 in 318 of 396 rows.
-- M1 — decide whether K-Means survives. Cluster win rates are 76.6% / 50.7% / 34.6% against `total_deaths` z-scores of -1.03 / +0.22 / +0.60, so the clusters restate "you lose the games where you die more". User decision, not an agent default.
+- M1 — decide whether K-Means survives. **Investigated 2026-08-12 on the reparsed source database.** The finding is that clustering cannot be rescued by better features, and the cluster-ID instability is inherent rather than a bug. Evidence, all measured on 396 Season 16 mid games:
+
+  | Feature set | Silhouette (k=4) | Win-rate spread across clusters | Max \|corr\| with winning | Collinear pairs |
+  |---|---|---|---|---|
+  | Current 9 features | 0.227 | 42% | 0.41 | 4 |
+  | Opponent-relative (gold/CS/XP diff, real deaths-while-behind) | 0.184 | 51% | 0.54 | 14 |
+  | Playstyle (wards, plates, objectives, death position, CS/min) | 0.149 | 52% | 0.42 | 0 |
+
+  - **Opponent data made clustering worse, not better.** Lane differentials describe how the game went, so clustering on them recovers the outcome even more sharply than the old proxies did.
+  - **No natural structure at any cluster count.** Sweeping k from 2 to 8 on the current features: silhouette 0.200, 0.224, 0.227, 0.258, 0.275, 0.229, 0.232. The peak is 0.275 at k=6, still inside the band conventionally read as little to no substantial structure. Win-rate spread stays between 37% and 63% at every k, so the clusters sort by outcome regardless of k.
+  - **The n=7 bucket is an outlier group, not an under-sampled archetype.** It appears with exactly 7 members at every k from 4 through 8.
+  - **The cluster-ID permutation is inherent.** K-Means is deterministic on fixed input — three identical runs gave identical sizes — but the ID assignment reshuffles whenever the dataset grows. Fitting on the first n rows for n = 300, 340, 354, 380, 396 put the low-death "Clean Games" centroid on id 1, 3, 2, 1, 1 respectively. The named snapshot in `models/cluster_centroids.json` was taken on a smaller dataset, which is why the current fit reads as a permutation of it. **The guard will therefore fire on essentially every data refresh, forever**, and no amount of care in the fit prevents it.
+
+  Reading: the circularity is not a feature-quality problem. A single player's match data has one dominant axis of variation — how the game went — and any unsupervised partition recovers it. Three independent feature sets, eight cluster counts, same answer.
+
+  Recommended: retire K-Means and replace it with explicit named patterns computed directly from the reparsed opponent data, which the schema now supports (for example: lost lane by minute 14 and then died away from mid; won lane and gave the lead back before the first objective). Explicit patterns are checkable, nameable, stable across refreshes, and carry no ID binding. Retiring K-Means also dissolves the permutation decision below rather than answering it. Still a user decision.
+- Cluster-ID permutation, open since 2026-07-18. The alternative to retiring K-Means is to accept the relabeling and remap IDs to the nearest named centroid on persist, so names follow their own clusters and the guard only fires on genuine drift. Verified 2026-08-12 that the current permutation is a clean bijection with matching sizes (new 0/1/2/3 of size 7/128/188/73 map to named 3/2/0/1 of the same sizes) and matching feature means, so accepting it would leave dashboard output unchanged.
 - Recurring pattern detection on repeated evidence. One unusual game is never a pattern.
 
 ### Cross-cutting
