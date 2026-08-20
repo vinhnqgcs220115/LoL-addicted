@@ -50,9 +50,18 @@ TIMELINE_COLUMNS = (
     "gold",
     "cs",
     "xp",
+    "level",
     "kills",
     "position_x",
     "position_y",
+    "opp_gold",
+    "opp_cs",
+    "opp_xp",
+    "opp_level",
+    "opp_position_x",
+    "opp_position_y",
+    "team_gold",
+    "enemy_team_gold",
 )
 
 DEATH_COLUMNS = (
@@ -62,7 +71,38 @@ DEATH_COLUMNS = (
     "timestamp_min",
     "gold_at_death",
     "cs_at_death",
+    "xp_at_death",
+    "position_x",
+    "position_y",
+    "killer_champion",
+    "assist_count",
+    "opp_gold_at_death",
 )
+
+EVENT_COLUMNS = (
+    "match_id",
+    "event_number",
+    "timestamp_ms",
+    "timestamp_min",
+    "event_type",
+    "position_x",
+    "position_y",
+    "player_involvement",
+    "is_player_team",
+    "detail",
+)
+
+#: Event types kept for every participant. Champion kills carry the team-fight
+#: context death classification needs; the objective events are only a handful
+#: per game. Ward events are kept for the player alone -- every support ward in
+#: every game would be six figures of rows that nothing reads.
+TEAM_EVENT_TYPES: frozenset[str] = frozenset({
+    "CHAMPION_KILL",
+    "TURRET_PLATE_DESTROYED",
+    "BUILDING_KILL",
+    "ELITE_MONSTER_KILL",
+})
+PLAYER_ONLY_EVENT_TYPES: frozenset[str] = frozenset({"WARD_PLACED", "WARD_KILL"})
 
 ROAM_WINDOW_COLUMNS = (
     "match_id",
@@ -168,9 +208,18 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
             gold INTEGER NOT NULL,
             cs INTEGER NOT NULL,
             xp INTEGER NOT NULL,
+            level INTEGER,
             kills INTEGER NOT NULL,
             position_x INTEGER,
             position_y INTEGER,
+            opp_gold INTEGER,
+            opp_cs INTEGER,
+            opp_xp INTEGER,
+            opp_level INTEGER,
+            opp_position_x INTEGER,
+            opp_position_y INTEGER,
+            team_gold INTEGER,
+            enemy_team_gold INTEGER,
             PRIMARY KEY (match_id, timestamp_min)
         )
         """
@@ -185,11 +234,35 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
             timestamp_min INTEGER NOT NULL,
             gold_at_death INTEGER,
             cs_at_death INTEGER,
+            xp_at_death INTEGER,
+            position_x INTEGER,
+            position_y INTEGER,
+            killer_champion VARCHAR,
+            assist_count INTEGER,
+            opp_gold_at_death INTEGER,
             PRIMARY KEY (match_id, death_number)
         )
         """
     )
     _assert_table_columns(conn, "match_deaths", DEATH_COLUMNS)
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS match_events (
+            match_id VARCHAR NOT NULL,
+            event_number INTEGER NOT NULL,
+            timestamp_ms INTEGER NOT NULL,
+            timestamp_min INTEGER NOT NULL,
+            event_type VARCHAR NOT NULL,
+            position_x INTEGER,
+            position_y INTEGER,
+            player_involvement VARCHAR,
+            is_player_team BOOLEAN,
+            detail VARCHAR,
+            PRIMARY KEY (match_id, event_number)
+        )
+        """
+    )
+    _assert_table_columns(conn, "match_events", EVENT_COLUMNS)
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS roam_windows (
@@ -314,14 +387,93 @@ def _extract_opp_fields(raw_match: dict[str, Any], puuid: str) -> dict[str, Any]
     }
 
 
+def _participant_teams(raw_match: dict[str, Any]) -> dict[int, int]:
+    """Map participantId to teamId for every participant in the match."""
+    teams: dict[int, int] = {}
+    for participant in raw_match.get("info", {}).get("participants", []):
+        if not isinstance(participant, dict):
+            continue
+        participant_id = participant.get("participantId")
+        if participant_id is None:
+            continue
+        teams[int(participant_id)] = int(participant.get("teamId", 0))
+    return teams
+
+
+def _participant_champions(raw_match: dict[str, Any]) -> dict[int, str]:
+    """Map participantId to champion name for every participant in the match."""
+    champions: dict[int, str] = {}
+    for participant in raw_match.get("info", {}).get("participants", []):
+        if not isinstance(participant, dict):
+            continue
+        participant_id = participant.get("participantId")
+        if participant_id is None:
+            continue
+        champions[int(participant_id)] = str(participant.get("championName", ""))
+    return champions
+
+
+def _opponent_participant_id(raw_match: dict[str, Any], puuid: str) -> int | None:
+    """Return the enemy mid laner's participantId, or None when absent."""
+    opponent = get_opponent_mid(raw_match, puuid)
+    if opponent is None:
+        return None
+    participant_id = opponent.get("participantId")
+    return None if participant_id is None else int(participant_id)
+
+
+def _frame_snapshot(participant_frame: dict[str, Any]) -> dict[str, Any]:
+    """Pull the fields we keep out of one participant's frame."""
+    position = participant_frame.get("position")
+    has_position = isinstance(position, dict)
+    return {
+        "gold": int(participant_frame.get("totalGold", 0)),
+        "cs": int(participant_frame.get("minionsKilled", 0))
+        + int(participant_frame.get("jungleMinionsKilled", 0)),
+        "xp": int(participant_frame.get("xp", 0)),
+        "level": int(participant_frame.get("level", 0)) or None,
+        "position_x": int(position["x"]) if has_position and "x" in position else None,
+        "position_y": int(position["y"]) if has_position and "y" in position else None,
+    }
+
+
+def _minute_snapshots(
+    raw_timeline: dict[str, Any], participant_key: str
+) -> dict[int, dict[str, Any]]:
+    """Return one snapshot per minute for a single participant."""
+    snapshots: dict[int, dict[str, Any]] = {}
+    for frame in raw_timeline.get("info", {}).get("frames", []):
+        if not isinstance(frame, dict):
+            continue
+        participant_frames = frame.get("participantFrames", {})
+        if not isinstance(participant_frames, dict):
+            continue
+        participant_frame = participant_frames.get(participant_key)
+        if not isinstance(participant_frame, dict):
+            continue
+        minute = int(int(frame.get("timestamp", 0)) // 60000)
+        snapshots[minute] = _frame_snapshot(participant_frame)
+    return snapshots
+
+
 def extract_timeline_rows(
     raw_match: dict[str, Any], raw_timeline: dict[str, Any], puuid: str
 ) -> list[dict[str, Any]]:
-    """Extract one per-minute timeline row for the configured player."""
+    """Extract one per-minute timeline row for the player and their lane opponent.
+
+    Riot sends every participant in each frame. Keeping the enemy mid laner's
+    gold, CS, XP, level, and position is what lets a deficit be measured against
+    the actual opponent instead of against the player's own season average.
+    Team gold totals come from summing the five participants on each side.
+    """
 
     match_id = str(raw_match["metadata"]["matchId"])
     participant_id = get_participant_id(raw_match, puuid)
     participant_key = str(participant_id)
+    opponent_id = _opponent_participant_id(raw_match, puuid)
+    opponent_key = None if opponent_id is None else str(opponent_id)
+    teams = _participant_teams(raw_match)
+    our_team = teams.get(participant_id)
     frames = raw_timeline.get("info", {}).get("frames", [])
 
     if not isinstance(frames, list):
@@ -352,25 +504,59 @@ def extract_timeline_rows(
         if not isinstance(participant_frame, dict):
             continue
 
+        own = _frame_snapshot(participant_frame)
+
+        opponent_frame = (
+            participant_frames.get(opponent_key) if opponent_key is not None else None
+        )
+        opponent = (
+            _frame_snapshot(opponent_frame)
+            if isinstance(opponent_frame, dict)
+            else None
+        )
+
+        team_gold = 0
+        enemy_team_gold = 0
+        for key, other_frame in participant_frames.items():
+            if not isinstance(other_frame, dict):
+                continue
+            try:
+                other_id = int(key)
+            except (TypeError, ValueError):
+                continue
+            gold = int(other_frame.get("totalGold", 0))
+            if teams.get(other_id) == our_team:
+                team_gold += gold
+            else:
+                enemy_team_gold += gold
+
         timestamp_min = int(int(frame.get("timestamp", 0)) // 60000)
-        position = participant_frame.get("position")
-        pos_x: int | None = int(position["x"]) if isinstance(position, dict) and "x" in position else None
-        pos_y: int | None = int(position["y"]) if isinstance(position, dict) and "y" in position else None
         # Riot can emit a final end-of-game frame inside the current minute bucket.
         # Keep the latest snapshot so we still return one row per minute.
         timeline_rows_by_minute[timestamp_min] = {
             "match_id": match_id,
             "timestamp_min": timestamp_min,
-            "gold": int(participant_frame.get("totalGold", 0)),
-            "cs": int(participant_frame.get("minionsKilled", 0))
-            + int(participant_frame.get("jungleMinionsKilled", 0)),
-            "xp": int(participant_frame.get("xp", 0)),
+            "gold": own["gold"],
+            "cs": own["cs"],
+            "xp": own["xp"],
+            "level": own["level"],
             "kills": kills_so_far,
-            "position_x": pos_x,
-            "position_y": pos_y,
+            "position_x": own["position_x"],
+            "position_y": own["position_y"],
+            "opp_gold": opponent["gold"] if opponent else None,
+            "opp_cs": opponent["cs"] if opponent else None,
+            "opp_xp": opponent["xp"] if opponent else None,
+            "opp_level": opponent["level"] if opponent else None,
+            "opp_position_x": opponent["position_x"] if opponent else None,
+            "opp_position_y": opponent["position_y"] if opponent else None,
+            "team_gold": team_gold,
+            "enemy_team_gold": enemy_team_gold,
         }
 
-    return [timeline_rows_by_minute[timestamp_min] for timestamp_min in sorted(timeline_rows_by_minute)]
+    return [
+        timeline_rows_by_minute[timestamp_min]
+        for timestamp_min in sorted(timeline_rows_by_minute)
+    ]
 
 
 def extract_death_rows(
@@ -378,32 +564,28 @@ def extract_death_rows(
     raw_timeline: dict[str, Any],
     puuid: str,
 ) -> list[dict[str, Any]]:
-    """Extract one row per death of the configured player from timeline events."""
+    """Extract one row per death of the configured player from timeline events.
+
+    The kill event carries where the death happened, who got it, and how many
+    others assisted. All three were previously discarded, which left death
+    context with nothing to classify on but a timestamp.
+    """
 
     match_id = str(raw_match["metadata"]["matchId"])
     participant_id = get_participant_id(raw_match, puuid)
+    opponent_id = _opponent_participant_id(raw_match, puuid)
+    champions = _participant_champions(raw_match)
     frames = raw_timeline.get("info", {}).get("frames", [])
 
     if not isinstance(frames, list):
         return []
 
-    # Build per-minute lookup from raw frames for gold/cs at time of death.
-    participant_key = str(participant_id)
-    minute_snapshot: dict[int, dict[str, int]] = {}
-    for frame in frames:
-        if not isinstance(frame, dict):
-            continue
-        participant_frames = frame.get("participantFrames", {})
-        if not isinstance(participant_frames, dict):
-            continue
-        pf = participant_frames.get(participant_key)
-        if not isinstance(pf, dict):
-            continue
-        ts_min = int(int(frame.get("timestamp", 0)) // 60000)
-        minute_snapshot[ts_min] = {
-            "gold": int(pf.get("totalGold", 0)),
-            "cs": int(pf.get("minionsKilled", 0)) + int(pf.get("jungleMinionsKilled", 0)),
-        }
+    own_snapshots = _minute_snapshots(raw_timeline, str(participant_id))
+    opponent_snapshots = (
+        _minute_snapshots(raw_timeline, str(opponent_id))
+        if opponent_id is not None
+        else {}
+    )
 
     death_rows: list[dict[str, Any]] = []
     death_number = 0
@@ -422,7 +604,13 @@ def extract_death_rows(
             death_number += 1
             timestamp_ms = int(event.get("timestamp", 0))
             timestamp_min = timestamp_ms // 60000
-            snapshot = minute_snapshot.get(timestamp_min)
+            snapshot = own_snapshots.get(timestamp_min)
+            opponent_snapshot = opponent_snapshots.get(timestamp_min)
+            position = event.get("position")
+            has_position = isinstance(position, dict)
+            killer_id = event.get("killerId")
+            assists = event.get("assistingParticipantIds")
+
             death_rows.append({
                 "match_id": match_id,
                 "death_number": death_number,
@@ -430,9 +618,106 @@ def extract_death_rows(
                 "timestamp_min": timestamp_min,
                 "gold_at_death": snapshot["gold"] if snapshot else None,
                 "cs_at_death": snapshot["cs"] if snapshot else None,
+                "xp_at_death": snapshot["xp"] if snapshot else None,
+                "position_x": (
+                    int(position["x"]) if has_position and "x" in position else None
+                ),
+                "position_y": (
+                    int(position["y"]) if has_position and "y" in position else None
+                ),
+                # killerId 0 means an execution or a turret, not a champion.
+                "killer_champion": champions.get(int(killer_id)) if killer_id else None,
+                "assist_count": len(assists) if isinstance(assists, list) else 0,
+                "opp_gold_at_death": (
+                    opponent_snapshot["gold"] if opponent_snapshot else None
+                ),
             })
 
     return death_rows
+
+
+def extract_event_rows(
+    raw_match: dict[str, Any],
+    raw_timeline: dict[str, Any],
+    puuid: str,
+) -> list[dict[str, Any]]:
+    """Extract the timeline events that carry gameplay context.
+
+    Champion kills and objective events are kept for both teams; ward events
+    only for the player. See TEAM_EVENT_TYPES for why.
+    """
+
+    match_id = str(raw_match["metadata"]["matchId"])
+    participant_id = get_participant_id(raw_match, puuid)
+    teams = _participant_teams(raw_match)
+    our_team = teams.get(participant_id)
+    frames = raw_timeline.get("info", {}).get("frames", [])
+
+    if not isinstance(frames, list):
+        return []
+
+    event_rows: list[dict[str, Any]] = []
+    event_number = 0
+
+    for frame in frames:
+        if not isinstance(frame, dict):
+            continue
+        for event in frame.get("events", []):
+            if not isinstance(event, dict):
+                continue
+            event_type = event.get("type")
+
+            actor_id = event.get("killerId") or event.get("creatorId")
+            assists = event.get("assistingParticipantIds")
+            assist_ids = assists if isinstance(assists, list) else []
+
+            if event_type in PLAYER_ONLY_EVENT_TYPES:
+                if actor_id != participant_id:
+                    continue
+            elif event_type not in TEAM_EVENT_TYPES:
+                continue
+
+            if event.get("victimId") == participant_id:
+                involvement = "victim"
+            elif actor_id == participant_id:
+                involvement = "actor"
+            elif participant_id in assist_ids:
+                involvement = "assist"
+            else:
+                involvement = None
+
+            actor_team = teams.get(int(actor_id)) if actor_id else None
+            position = event.get("position")
+            has_position = isinstance(position, dict)
+            detail = (
+                event.get("monsterType")
+                or event.get("buildingType")
+                or event.get("wardType")
+                or event.get("towerType")
+            )
+
+            event_number += 1
+            timestamp_ms = int(event.get("timestamp", 0))
+            event_rows.append({
+                "match_id": match_id,
+                "event_number": event_number,
+                "timestamp_ms": timestamp_ms,
+                "timestamp_min": timestamp_ms // 60000,
+                "event_type": str(event_type),
+                "position_x": (
+                    int(position["x"]) if has_position and "x" in position else None
+                ),
+                "position_y": (
+                    int(position["y"]) if has_position and "y" in position else None
+                ),
+                "player_involvement": involvement,
+                "is_player_team": (
+                    None if actor_team is None else actor_team == our_team
+                ),
+                "detail": None if detail is None else str(detail),
+            })
+
+    return event_rows
 
 
 def process_match(match_id: str, puuid: str, conn: duckdb.DuckDBPyConnection) -> None:
@@ -451,6 +736,7 @@ def process_match(match_id: str, puuid: str, conn: duckdb.DuckDBPyConnection) ->
     match_row = extract_match_row(raw_match, puuid)
     timeline_rows = extract_timeline_rows(raw_match, raw_timeline, puuid)
     death_rows = extract_death_rows(raw_match, raw_timeline, puuid)
+    event_rows = extract_event_rows(raw_match, raw_timeline, puuid)
 
     match_placeholders = ", ".join("?" for _ in MATCH_COLUMNS)
     timeline_placeholders = ", ".join("?" for _ in TIMELINE_COLUMNS)
@@ -473,6 +759,13 @@ def process_match(match_id: str, puuid: str, conn: duckdb.DuckDBPyConnection) ->
             conn.executemany(
                 f"INSERT OR IGNORE INTO match_deaths ({', '.join(DEATH_COLUMNS)}) VALUES ({death_placeholders})",
                 [[row[column] for column in DEATH_COLUMNS] for row in death_rows],
+            )
+
+        if event_rows:
+            event_placeholders = ", ".join("?" for _ in EVENT_COLUMNS)
+            conn.executemany(
+                f"INSERT OR IGNORE INTO match_events ({', '.join(EVENT_COLUMNS)}) VALUES ({event_placeholders})",
+                [[row[column] for column in EVENT_COLUMNS] for row in event_rows],
             )
 
         conn.execute("COMMIT")

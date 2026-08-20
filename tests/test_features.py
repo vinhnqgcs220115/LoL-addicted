@@ -1,15 +1,26 @@
 from __future__ import annotations
 
 import duckdb
+import pandas as pd
+import pytest
 
 from src import processor
 from src.features import (
+    _direction_survives_one_more_game,
     build_feature_matrix,
     champion_matchup_stats,
+    classify_winrate,
+    champion_archetype_matchups,
+    champion_pool,
+    core_champions,
     death_context,
+    games_to_verdict,
+    archetype_winrates,
+    pocket_picks,
     is_throw_game,
     roam_timing,
     tilt_index,
+    wilson_interval,
 )
 
 S15_DATETIME = "2025-12-15T12:00:00+00:00"  # before CURRENT_SEASON_START
@@ -58,7 +69,10 @@ def _make_conn() -> duckdb.DuckDBPyConnection:
             gold = 500 + minute * 250
             cs = minute * 8
             conn.execute("""
-                INSERT INTO match_timelines VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO match_timelines
+                    (match_id, timestamp_min, gold, cs, xp, kills,
+                     position_x, position_y)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, [match_id, minute, gold, cs, minute * 100, 0, 7500 + minute * 10, 7500 + minute * 10])
 
     # --- Deaths for S16_A: 4 deaths, deaths 2/3/4 are consecutive (tilt spiral) ---
@@ -66,22 +80,22 @@ def _make_conn() -> duckdb.DuckDBPyConnection:
     # death 2: minute 7 (gap 2 → tilt spiral)
     # death 3: minute 9 (gap 2 → tilt spiral)
     # death 4: minute 11 (gap 2 → tilt spiral)
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_A', 1, 300000, 5, 2750, 40)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_A', 2, 420000, 7, 3250, 56)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_A', 3, 540000, 9, 3750, 72)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_A', 4, 660000, 11, 4250, 88)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_A', 1, 300000, 5, 2750, 40)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_A', 2, 420000, 7, 3250, 56)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_A', 3, 540000, 9, 3750, 72)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_A', 4, 660000, 11, 4250, 88)")
 
     # --- Deaths for S16_B: 5 deaths, deaths 4/5 are consecutive ---
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_B', 1, 180000, 3, 2000, 24)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_B', 2, 480000, 8, 3500, 64)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_B', 3, 720000, 12, 4500, 96)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_B', 4, 840000, 14, 5000, 112)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_B', 5, 900000, 15, 5250, 120)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_B', 1, 180000, 3, 2000, 24)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_B', 2, 480000, 8, 3500, 64)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_B', 3, 720000, 12, 4500, 96)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_B', 4, 840000, 14, 5000, 112)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_B', 5, 900000, 15, 5250, 120)")
 
     # S16_C: no deaths — tests zero-death handling
     # S16_D: 2 deaths far apart — no tilt spiral
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_D', 1, 180000, 3, 2000, 24)")
-    conn.execute("INSERT INTO match_deaths VALUES ('S16_D', 2, 900000, 15, 5000, 120)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_D', 1, 180000, 3, 2000, 24)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S16_D', 2, 900000, 15, 5000, 120)")
 
     return conn
 
@@ -197,7 +211,10 @@ def test_roam_timing_uses_cs_drop_when_position_missing() -> None:
     """, [S16_DATETIME_D])
     for minute in range(21):
         conn.execute("""
-            INSERT INTO match_timelines VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO match_timelines
+                    (match_id, timestamp_min, gold, cs, xp, kills,
+                     position_x, position_y)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, [
             "S16_E",
             minute,
@@ -282,7 +299,7 @@ def test_no_nan_in_feature_matrix() -> None:
 
 def test_death_context_excludes_s15_deaths() -> None:
     conn = _make_conn()
-    conn.execute("INSERT INTO match_deaths VALUES ('S15_MATCH', 1, 300000, 5, 2750, 40)")
+    conn.execute("INSERT INTO match_deaths (match_id, death_number, timestamp_ms, timestamp_min, gold_at_death, cs_at_death) VALUES ('S15_MATCH', 1, 300000, 5, 2750, 40)")
     result = death_context(conn)
     conn.close()
 
@@ -297,3 +314,155 @@ def test_avg_cs_sacrifice_is_log_transformed() -> None:
     assert fm["avg_cs_sacrifice"].min() >= 0
     assert fm["avg_cs_sacrifice"].max() < 5   # log1p(61.4) ≈ 4.12; raw 61.4 would fail this
     assert fm["avg_cs_sacrifice"].isna().sum() == 0
+
+
+def test_wilson_interval_widens_as_samples_shrink() -> None:
+    """A small sample must not produce a narrow, confident-looking interval."""
+    low_small, high_small = wilson_interval(2, 2)
+    low_large, high_large = wilson_interval(60, 100)
+
+    assert (high_small - low_small) > (high_large - low_large)
+    # 2/2 cannot exclude the baseline; 60/100 can.
+    assert low_small < 0.5 < high_small
+    assert low_large > 0.5
+
+    # Degenerate input stays maximally uninformative rather than raising.
+    assert wilson_interval(0, 0) == (0.0, 1.0)
+    # Bounds never escape [0, 1] even at the extremes.
+    for wins, games in [(0, 8), (8, 8), (1, 3)]:
+        low, high = wilson_interval(wins, games)
+        assert 0.0 <= low <= high <= 1.0
+
+
+def test_classify_winrate_uses_baseline_not_coin_flip() -> None:
+    """A verdict is measured against the player's own baseline, not 50%."""
+    baseline = 0.60
+
+    # Beats a coin flip but not this player's baseline -> not Positive.
+    assert classify_winrate(0.52, 0.58, baseline) == "Negative"
+    assert classify_winrate(0.62, 0.80, baseline) == "Positive"
+    # An interval spanning the baseline is never a verdict.
+    assert classify_winrate(0.30, 0.90, baseline) == "Uncertain"
+    # Skill-based needs a user-supplied effect size and must not be invented.
+    assert classify_winrate(0.59, 0.61, baseline) == "Uncertain"
+
+
+def test_games_to_verdict_scales_with_the_gap_to_baseline() -> None:
+    """A near-baseline rate needs far more games than an extreme one."""
+    baseline = 0.50
+
+    near = games_to_verdict(0.55, baseline)
+    far = games_to_verdict(0.90, baseline)
+    assert near is not None and far is not None
+    assert near > far
+
+    # A rate sitting exactly on the baseline never separates, at any sample size.
+    assert games_to_verdict(0.50, baseline) is None
+    # Works in both directions.
+    assert games_to_verdict(0.10, baseline) is not None
+
+
+def test_opponent_archetype_winrates_holds_out_build_dependent() -> None:
+    """A build-dependent champion gets its own row and never carries a verdict."""
+    conn = _make_conn()
+    conn.execute("""
+        INSERT INTO matches VALUES (
+            'S16_SYLAS', 'puuid1', ?, '16.1', 420,
+            1800, 1, 'Zoe', 100, 'MIDDLE', 'MID', true,
+            5, 2, 3, 4.0, 180, 6.0, 12000, 20000, 30,
+            'Sylas', 150, 11000, 2, 3, 1
+        )
+    """, [S16_DATETIME_D])
+    frame = archetype_winrates(conn, "opponent")
+    conn.close()
+
+    by_archetype = frame.set_index("archetype")
+    assert "Build-dependent" in by_archetype.index
+    assert not bool(by_archetype.loc["Build-dependent", "verdict_eligible"])
+    assert by_archetype.loc["Build-dependent", "matchup_class"] == "Uncertain"
+    assert int(by_archetype.loc["Build-dependent", "games"]) == 1
+    # Sylas must not have been folded into a real archetype bucket.
+    assert int(by_archetype.loc["Control Mages", "games"]) == 4
+
+
+def test_projection_is_withheld_when_one_game_would_undo_it() -> None:
+    """A games-needed projection reads as a promise; do not make one from noise."""
+    baseline = 0.513
+
+    # 1/1 at 100%: a single loss drops it to 50%, below baseline. Not projectable.
+    assert not _direction_survives_one_more_game(1.0, 1, baseline)
+    # 0/1 at 0%: one game is not a rate at all.
+    assert not _direction_survives_one_more_game(0.0, 1, baseline)
+    # 51/114 at 44.7%: one win moves it to 45.2%, still clearly below.
+    assert _direction_survives_one_more_game(0.447, 114, baseline)
+    # A rate sitting on the baseline has no direction to preserve.
+    assert not _direction_survives_one_more_game(baseline, 50, baseline)
+
+
+def test_core_champions_is_derived_from_usage_not_a_game_count() -> None:
+    """The "rarely played" line comes from the player's own pool, not a constant."""
+    pool = pd.DataFrame(
+        {
+            "champion_name": ["Main", "Second", "Rare", "Rarer"],
+            "games": [60, 25, 10, 5],
+        }
+    )
+    # 100 games total; Main alone already covers 60%, so it is the whole core.
+    assert core_champions(pool, coverage=0.5) == {"Main"}
+    # Raising the bar pulls the next champion in rather than changing a threshold.
+    assert core_champions(pool, coverage=0.8) == {"Main", "Second"}
+    assert core_champions(pd.DataFrame(columns=["champion_name", "games"])) == set()
+
+
+def test_pocket_picks_never_recommends_a_single_game_outlier() -> None:
+    """A 1/1 champion is the exact case PRODUCT.md forbids promoting."""
+    conn = _make_conn()
+    # One extra champion, played once, won once: a 100% win rate on no evidence.
+    conn.execute("""
+        INSERT INTO matches VALUES (
+            'S16_ONEOFF', 'puuid1', ?, '16.1', 420,
+            1800, 1, 'Galio', 100, 'MIDDLE', 'MID', true,
+            5, 2, 3, 4.0, 180, 6.0, 12000, 20000, 30,
+            'Viktor', 150, 11000, 2, 3, 1
+        )
+    """, [S16_DATETIME_D])
+    picks = pocket_picks(conn)
+    conn.close()
+
+    galio = picks[picks["champion_name"] == "Galio"]
+    assert not galio.empty
+    assert galio.iloc[0]["label"] == "Insufficient Data"
+    assert "Potential Pocket Pick" not in set(picks["label"])
+
+
+def test_champion_pool_reports_per_minute_economy() -> None:
+    """The pool answers *how* a champion performs, not only whether it won."""
+    conn = _make_conn()
+    pool = champion_pool(conn)
+    conn.close()
+
+    zed = pool[pool["champion_name"] == "Zed"].iloc[0]
+    assert int(zed["games"]) == 3
+    assert int(zed["wins"]) + int(zed["losses"]) == int(zed["games"])
+    # 12000 gold over a 1800s game is 400 gold per minute.
+    assert zed["gold_per_min"] == pytest.approx(400.0)
+    assert zed["avg_duration_min"] == pytest.approx(30.0)
+    assert zed["archetype"] == "Assassins"
+
+
+def test_champion_archetype_matchups_drops_ineligible_opponents() -> None:
+    """Build-dependent opponents cannot carry a champion-into-archetype verdict."""
+    conn = _make_conn()
+    conn.execute("""
+        INSERT INTO matches VALUES (
+            'S16_FLEX', 'puuid1', ?, '16.1', 420,
+            1800, 1, 'Zed', 100, 'MIDDLE', 'MID', true,
+            5, 2, 3, 4.0, 180, 6.0, 12000, 20000, 30,
+            'Sylas', 150, 11000, 2, 3, 1
+        )
+    """, [S16_DATETIME_D])
+    frame = champion_archetype_matchups(conn)
+    conn.close()
+
+    assert "Build-dependent" not in set(frame["archetype"])
+    assert not frame.empty

@@ -6,6 +6,7 @@ import duckdb
 import numpy as np
 import pandas as pd
 
+from src.archetypes import champion_archetype, is_verdict_eligible
 from src.processor import ROAM_WINDOW_COLUMNS
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -21,6 +22,409 @@ ANALYSIS_ROLE: str = "MIDDLE"
 EARLY_DEATH_THRESHOLD_MIN: int = 6    # deaths before this minute are classified as early
 TILT_SPIRAL_GAP_MIN: int = 3          # max minutes between deaths to count as a spiral
 TILT_WINDOW_GAMES: int = 5            # rolling window size for tilt index
+WILSON_Z: float = 1.96                # 95% two-sided normal quantile
+WINRATE_GROUPINGS: dict[str, str] = {
+    "champion": "champion_name",
+    "opponent": "opp_champion_name",
+}
+
+
+def wilson_interval(
+    wins: int, games: int, z: float = WILSON_Z
+) -> tuple[float, float]:
+    """Return the Wilson score interval for a win count.
+
+    Used instead of a fixed win-rate cutoff. A hardcoded threshold such as
+    "green at 55%" is an invented gameplay threshold and PRODUCT.md section 12
+    forbids one; the interval width is derived from the sample size instead, so
+    a two-game matchup cannot produce a confident verdict. Do not replace this
+    with a percentage constant.
+
+    Returns (0.0, 1.0) for zero games — maximally uninformative, never clear.
+    """
+    if games <= 0:
+        return (0.0, 1.0)
+    proportion = wins / games
+    denominator = 1.0 + z * z / games
+    center = (proportion + z * z / (2 * games)) / denominator
+    half_width = (
+        z
+        * np.sqrt(proportion * (1.0 - proportion) / games + z * z / (4 * games * games))
+        / denominator
+    )
+    return (max(0.0, center - half_width), min(1.0, center + half_width))
+
+
+def personal_baseline(conn: duckdb.DuckDBPyConnection) -> float:
+    """Return the player's overall win rate within the current analysis scope.
+
+    This is the baseline every matchup and champion verdict is measured against,
+    per PRODUCT.md section 4: "+8% above your overall mid-lane baseline". A
+    matchup is not good because it beats a coin flip; it is good because it
+    beats how the player does in general.
+    """
+    result = conn.execute(
+        """
+        SELECT AVG(win::INTEGER)
+        FROM matches
+        WHERE game_datetime >= ? AND team_position = ?
+        """,
+        [CURRENT_SEASON_START, ANALYSIS_ROLE],
+    ).fetchone()[0]
+    return float(result) if result is not None else 0.5
+
+
+def classify_winrate(low: float, high: float, baseline: float) -> str:
+    """Classify a win-rate interval against the player's baseline.
+
+    Returns one of the PRODUCT.md section 7 classes. ``Skill-based`` is
+    deliberately not emitted: separating "reliably close to baseline" from
+    "we simply do not know" requires naming a minimum interesting effect size,
+    which PRODUCT.md section 12 makes a user decision. Until that number
+    exists, both cases are honestly reported as Uncertain.
+    """
+    if low > baseline:
+        return "Positive"
+    if high < baseline:
+        return "Negative"
+    return "Uncertain"
+
+
+def games_to_verdict(
+    winrate: float, baseline: float, max_games: int = 2000
+) -> int | None:
+    """Games needed at the observed rate before the interval clears the baseline.
+
+    Turns "Uncertain" from a dead end into a target: it says how much more of
+    the same play it would take to know. Returns ``None`` when the observed rate
+    sits on the baseline, where no sample size ever separates them, and when the
+    answer exceeds ``max_games``.
+    """
+    if winrate == baseline:
+        return None
+    for games in range(2, max_games + 1):
+        low, high = wilson_interval(round(winrate * games), games)
+        if low > baseline or high < baseline:
+            return games
+    return None
+
+
+def _direction_survives_one_more_game(
+    winrate: float, games: int, baseline: float
+) -> bool:
+    """Whether one more game of the opposite result would flip the direction.
+
+    A projection reads as a promise ("4 more games and you will know"), so it is
+    only worth stating when the direction it projects is not an artifact of a
+    single game. This is a stability test, not a minimum sample size: it invents
+    no cutoff, it just refuses to extrapolate from a rate that one result undoes.
+    """
+    if games < 2 or winrate == baseline:
+        return False
+    wins = round(winrate * games)
+    # Add one game of the result that would pull the rate back toward baseline.
+    opposite_wins = wins if winrate > baseline else wins + 1
+    shifted = opposite_wins / (games + 1)
+    return (shifted > baseline) == (winrate > baseline) and shifted != baseline
+
+
+def _add_winrate_interval(
+    df: pd.DataFrame, rate_column: str, baseline: float
+) -> pd.DataFrame:
+    """Attach winrate_lo, winrate_hi, and matchup_class from the Wilson interval."""
+    bounds = [
+        wilson_interval(round(rate * games), int(games))
+        for rate, games in zip(df[rate_column], df["games"], strict=True)
+    ]
+    df["winrate_lo"] = [low for low, _ in bounds]
+    df["winrate_hi"] = [high for _, high in bounds]
+    df["matchup_class"] = [
+        classify_winrate(low, high, baseline) for low, high in bounds
+    ]
+    df["games_needed"] = [
+        None
+        if matchup_class != "Uncertain"
+        or not _direction_survives_one_more_game(rate, int(games), baseline)
+        else games_to_verdict(rate, baseline)
+        for matchup_class, rate, games in zip(
+            df["matchup_class"], df[rate_column], df["games"], strict=True
+        )
+    ]
+    return df
+
+
+def champion_winrates(
+    conn: duckdb.DuckDBPyConnection, dimension: str
+) -> pd.DataFrame:
+    """Aggregate win rate by our champion or by opponent champion.
+
+    Pair-level matchup slices are too small to support a verdict; these two
+    single-axis groupings are where a defensible one can still exist.
+
+    Columns: name, games, wins, winrate, winrate_lo, winrate_hi, matchup_class,
+    games_needed.
+    """
+    if dimension not in WINRATE_GROUPINGS:
+        raise ValueError(
+            f"dimension must be one of {sorted(WINRATE_GROUPINGS)}, got {dimension!r}"
+        )
+    group_column = WINRATE_GROUPINGS[dimension]
+
+    df = conn.execute(f"""
+        SELECT
+            {group_column} AS name,
+            COUNT(*)::INTEGER AS games,
+            SUM(win::INTEGER)::INTEGER AS wins
+        FROM matches
+        WHERE game_datetime >= ?
+          AND team_position = ?
+          AND {group_column} IS NOT NULL
+        GROUP BY {group_column}
+        ORDER BY games DESC, name ASC
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
+
+    if df.empty:
+        return pd.DataFrame(
+            columns=["name", "games", "wins", "winrate",
+                     "winrate_lo", "winrate_hi", "matchup_class", "games_needed"]
+        )
+
+    df["winrate"] = df["wins"] / df["games"]
+    return _add_winrate_interval(df, "winrate", personal_baseline(conn))
+
+
+ARCHETYPE_SIDES: dict[str, str] = {
+    "own": "champion_name",
+    "opponent": "opp_champion_name",
+}
+CORE_POOL_COVERAGE: float = 0.5
+POCKET_PICK_LABELS: tuple[str, ...] = (
+    "Potential Pocket Pick",
+    "Matchup-specific Pocket Pick",
+    "Emerging Pick",
+    "Insufficient Data",
+)
+
+
+def archetype_winrates(conn: duckdb.DuckDBPyConnection, side: str) -> pd.DataFrame:
+    """Aggregate win rate by champion archetype, for our champion or the opponent's.
+
+    Archetype buckets are the smallest grouping in this dataset large enough to
+    support a verdict; individual matchup pairs run 2-9 games and cannot.
+    Build-dependent and unclassified champions are reported as their own rows
+    and marked ineligible rather than folded into a bucket they would distort.
+
+    Columns: archetype, games, wins, winrate, winrate_lo, winrate_hi,
+    matchup_class, games_needed, verdict_eligible.
+    """
+    if side not in ARCHETYPE_SIDES:
+        raise ValueError(f"side must be one of {sorted(ARCHETYPE_SIDES)}, got {side!r}")
+    column = ARCHETYPE_SIDES[side]
+
+    df = conn.execute(f"""
+        SELECT {column} AS name, win
+        FROM matches
+        WHERE game_datetime >= ?
+          AND team_position = ?
+          AND {column} IS NOT NULL
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
+
+    columns = ["archetype", "games", "wins", "winrate", "winrate_lo",
+               "winrate_hi", "matchup_class", "games_needed", "verdict_eligible"]
+    if df.empty:
+        return pd.DataFrame(columns=columns)
+
+    df["archetype"] = df["name"].map(champion_archetype)
+    grouped = (
+        df.groupby("archetype")
+        .agg(games=("win", "count"), wins=("win", "sum"))
+        .reset_index()
+    )
+    grouped["wins"] = grouped["wins"].astype(int)
+    grouped["winrate"] = grouped["wins"] / grouped["games"]
+    grouped = _add_winrate_interval(grouped, "winrate", personal_baseline(conn))
+
+    grouped["verdict_eligible"] = grouped["archetype"].map(is_verdict_eligible)
+    # An ineligible grouping is reference only; it must never read as a verdict.
+    grouped.loc[~grouped["verdict_eligible"], "matchup_class"] = "Uncertain"
+
+    return grouped.sort_values("games", ascending=False).reset_index(drop=True)[columns]
+
+
+def champion_pool(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Per-champion performance for every champion played in the current scope.
+
+    Answers "which champions actually work for me, and how": the rate with its
+    interval, plus the per-minute economy and lane numbers that say *how* a
+    champion performs rather than only whether it won.
+
+    Columns: champion_name, archetype, games, wins, losses, winrate, winrate_lo,
+    winrate_hi, matchup_class, games_needed, avg_kda, cs_per_min, gold_per_min,
+    damage_per_min, avg_duration_min, cs_diff, gold_diff.
+    """
+    df = conn.execute("""
+        SELECT
+            champion_name,
+            COUNT(*)::INTEGER AS games,
+            SUM(win::INTEGER)::INTEGER AS wins,
+            AVG(kda)::DOUBLE AS avg_kda,
+            AVG(cs_per_min)::DOUBLE AS cs_per_min,
+            AVG(gold_earned * 60.0 / NULLIF(game_duration_sec, 0))::DOUBLE AS gold_per_min,
+            AVG(damage_dealt_to_champions * 60.0 / NULLIF(game_duration_sec, 0))::DOUBLE
+                AS damage_per_min,
+            AVG(game_duration_sec / 60.0)::DOUBLE AS avg_duration_min,
+            AVG(cs_total - opp_cs_total)::DOUBLE AS cs_diff,
+            AVG(gold_earned - opp_gold_earned)::DOUBLE AS gold_diff
+        FROM matches
+        WHERE game_datetime >= ? AND team_position = ?
+        GROUP BY champion_name
+        ORDER BY games DESC, champion_name ASC
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
+
+    columns = ["champion_name", "archetype", "games", "wins", "losses", "winrate",
+               "winrate_lo", "winrate_hi", "matchup_class", "games_needed",
+               "avg_kda", "cs_per_min", "gold_per_min", "damage_per_min",
+               "avg_duration_min", "cs_diff", "gold_diff"]
+    if df.empty:
+        return pd.DataFrame(columns=columns)
+
+    df["losses"] = df["games"] - df["wins"]
+    df["winrate"] = df["wins"] / df["games"]
+    df["archetype"] = df["champion_name"].map(champion_archetype)
+    df = _add_winrate_interval(df, "winrate", personal_baseline(conn))
+    return df[columns]
+
+
+def core_champions(pool: pd.DataFrame, coverage: float = CORE_POOL_COVERAGE) -> set[str]:
+    """Return the smallest set of champions covering ``coverage`` of all games.
+
+    "Rarely played" only means something relative to what the player actually
+    mains, so the line is derived from their own usage rather than set to a game
+    count. With ``coverage`` at one half this is the set of champions making up
+    the majority of their games.
+    """
+    if pool.empty:
+        return set()
+    ordered = pool.sort_values("games", ascending=False)
+    target = ordered["games"].sum() * coverage
+    running = ordered["games"].cumsum()
+    # Include the champion that crosses the line, not only those strictly under it.
+    return set(ordered.loc[running - ordered["games"] < target, "champion_name"])
+
+
+def champion_archetype_matchups(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Win rate for each (our champion, opponent archetype) pair.
+
+    One level finer than `archetype_winrates` and one level coarser than a
+    champion-versus-champion pair, which is where a matchup verdict can still
+    exist. Ineligible opponent groupings are excluded outright.
+
+    Columns: champion_name, archetype, games, wins, winrate, winrate_lo,
+    winrate_hi, matchup_class, games_needed.
+    """
+    df = conn.execute("""
+        SELECT champion_name, opp_champion_name, win
+        FROM matches
+        WHERE game_datetime >= ?
+          AND team_position = ?
+          AND opp_champion_name IS NOT NULL
+    """, [CURRENT_SEASON_START, ANALYSIS_ROLE]).df()
+
+    columns = ["champion_name", "archetype", "games", "wins", "winrate",
+               "winrate_lo", "winrate_hi", "matchup_class", "games_needed"]
+    if df.empty:
+        return pd.DataFrame(columns=columns)
+
+    df["archetype"] = df["opp_champion_name"].map(champion_archetype)
+    df = df[df["archetype"].map(is_verdict_eligible)]
+    if df.empty:
+        return pd.DataFrame(columns=columns)
+
+    grouped = (
+        df.groupby(["champion_name", "archetype"])
+        .agg(games=("win", "count"), wins=("win", "sum"))
+        .reset_index()
+    )
+    grouped["wins"] = grouped["wins"].astype(int)
+    grouped["winrate"] = grouped["wins"] / grouped["games"]
+    grouped = _add_winrate_interval(grouped, "winrate", personal_baseline(conn))
+    return grouped.sort_values("games", ascending=False).reset_index(drop=True)[columns]
+
+
+def pocket_picks(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Label rarely-played champions by how far the evidence for them actually goes.
+
+    A pocket pick is a champion outside the core pool that outperforms the
+    player's baseline. The label reports the strength of the evidence, so a
+    small-sample outlier lands on `Insufficient Data` instead of becoming a
+    recommendation -- PRODUCT.md section 6 forbids the latter explicitly.
+
+    Columns: champion_name, archetype, games, wins, winrate, winrate_lo,
+    winrate_hi, label, evidence.
+    """
+    pool = champion_pool(conn)
+    columns = ["champion_name", "archetype", "games", "wins", "winrate",
+               "winrate_lo", "winrate_hi", "label", "evidence"]
+    if pool.empty:
+        return pd.DataFrame(columns=columns)
+
+    baseline = personal_baseline(conn)
+    core = core_champions(pool)
+    positive_matchups = champion_archetype_matchups(conn)
+    positive_matchups = positive_matchups[
+        positive_matchups["matchup_class"] == "Positive"
+    ]
+
+    rows = []
+    for champion in pool[~pool["champion_name"].isin(core)].itertuples(index=False):
+        if champion.winrate <= baseline:
+            continue
+
+        strong = positive_matchups[
+            positive_matchups["champion_name"] == champion.champion_name
+        ]
+        if champion.matchup_class == "Positive":
+            label = "Potential Pocket Pick"
+            evidence = "Win rate clears your baseline on its own."
+        elif not strong.empty:
+            best = strong.iloc[0]
+            label = "Matchup-specific Pocket Pick"
+            evidence = (
+                f"Clears your baseline against {best['archetype']} "
+                f"({int(best['wins'])} of {int(best['games'])} games)."
+            )
+        elif _direction_survives_one_more_game(
+            champion.winrate, int(champion.games), baseline
+        ):
+            label = "Emerging Pick"
+            evidence = "Above your baseline, and one loss would not reverse that."
+        else:
+            label = "Insufficient Data"
+            evidence = "Too few games; a single result would flip the direction."
+
+        rows.append({
+            "champion_name": champion.champion_name,
+            "archetype": champion.archetype,
+            "games": int(champion.games),
+            "wins": int(champion.wins),
+            "winrate": champion.winrate,
+            "winrate_lo": champion.winrate_lo,
+            "winrate_hi": champion.winrate_hi,
+            "label": label,
+            "evidence": evidence,
+        })
+
+    if not rows:
+        return pd.DataFrame(columns=columns)
+
+    result = pd.DataFrame(rows)
+    order = {label: index for index, label in enumerate(POCKET_PICK_LABELS)}
+    result["_rank"] = result["label"].map(order)
+    return (
+        result.sort_values(["_rank", "games"], ascending=[True, False])
+        .drop(columns="_rank")
+        .reset_index(drop=True)[columns]
+    )
 
 
 def _time_bucket(hour: int) -> str:
@@ -315,7 +719,12 @@ def champion_matchup_stats(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
 
     Filters to matchups with at least 2 games.
     Columns: champion_name, opp_champion_name, games, our_avg_cs, opp_avg_cs,
-    cs_diff, our_winrate, our_avg_kda, opp_avg_kda.
+    cs_diff, gold_diff, our_winrate, winrate_lo, winrate_hi, matchup_class,
+    games_needed, our_avg_kda, opp_avg_kda.
+
+    ``gold_diff`` is end-of-game gold against the actual lane opponent — the
+    only opponent-anchored gold figure the schema currently carries. Per-minute
+    opponent gold requires parsing all ten participantFrames.
     """
     df = conn.execute("""
         SELECT
@@ -323,6 +732,8 @@ def champion_matchup_stats(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
             opp_champion_name,
             cs_total,
             opp_cs_total,
+            gold_earned,
+            opp_gold_earned,
             win,
             kda,
             opp_kills,
@@ -344,6 +755,8 @@ def champion_matchup_stats(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
             games=("win", "count"),
             our_avg_cs=("cs_total", "mean"),
             opp_avg_cs=("opp_cs_total", "mean"),
+            our_avg_gold=("gold_earned", "mean"),
+            opp_avg_gold=("opp_gold_earned", "mean"),
             our_winrate=("win", "mean"),
             our_avg_kda=("kda", "mean"),
             opp_avg_kda=("opp_kda", "mean"),
@@ -351,14 +764,19 @@ def champion_matchup_stats(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         .reset_index()
     )
     stats["cs_diff"] = stats["our_avg_cs"] - stats["opp_avg_cs"]
+    stats["gold_diff"] = stats["our_avg_gold"] - stats["opp_avg_gold"]
 
-    return stats.loc[
-        stats["games"] >= 2,
+    stats = stats.loc[stats["games"] >= 2].reset_index(drop=True)
+    stats = _add_winrate_interval(stats, "our_winrate", personal_baseline(conn))
+
+    return stats[
         [
             "champion_name", "opp_champion_name", "games",
-            "our_avg_cs", "opp_avg_cs", "cs_diff",
-            "our_winrate", "our_avg_kda", "opp_avg_kda",
-        ],
+            "our_avg_cs", "opp_avg_cs", "cs_diff", "gold_diff",
+            "our_winrate", "winrate_lo", "winrate_hi", "matchup_class",
+            "games_needed",
+            "our_avg_kda", "opp_avg_kda",
+        ]
     ].reset_index(drop=True)
 
 

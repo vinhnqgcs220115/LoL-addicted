@@ -1,5 +1,15 @@
 # Repository Guidelines
 
+## Read First
+
+`PRODUCT.md` defines what this project is for, who it is for, when it is done, and what is explicitly out of scope. Read it before proposing any feature or UI change; most "improvements" are already closed non-goals.
+
+`.claude/CONTEXT.md` is the only file that may contain project state — a row count, a metric, a date, a phase, or a done/not-done claim. Every other document holds rules, product intent, or domain constants. A change to project state edits `CONTEXT.md` and no other document. There is no session log; `git log` is the history.
+
+Not project state, and therefore allowed elsewhere: domain constants and patch-verification dates in `GAME_MECHANICS.md`, dated decision entries, code constants, and thresholds declared in source.
+
+Never trust a status claim in a chat handoff or summary over the repository. Verify against the tree.
+
 ## Project Structure & Module Organization
 
 - `src/collector.py` calls Riot APIs and writes immutable JSON to `data/raw/`.
@@ -33,6 +43,14 @@ python -m ruff check src tests dashboard scripts   # Lint Python
 ```
 
 Commands stop on the first failed native process. Use `rebuild` after parser or schema changes.
+
+## Data Integrity
+
+Analytics are only useful if the underlying data is correct. Before changing analytics logic, verify match filtering, role and lane filtering, champion identity, patch and season handling, duplicate matches, timestamps, participant mapping, opponent mapping, win/loss interpretation, and timeline alignment.
+
+Be especially careful with off-role games, duplicate games, incomplete timeline data, stale derived tables, stale cached values, and metrics calculated from the wrong scope.
+
+A visually impressive statistic calculated incorrectly is worse than no statistic.
 
 ## Coding Style & Testing
 

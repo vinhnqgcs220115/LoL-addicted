@@ -2,6 +2,26 @@
 
 Personal DS portfolio project — analyzing ranked LoL performance via the official Riot Games API. Single-summoner scope, no real-time in-game interaction. End product: a live Streamlit dashboard deployed on Streamlit Cloud.
 
+## Where Facts Live
+
+Every fact has exactly one home. Read the home file; do not restate its content elsewhere.
+
+| Kind of fact | Home | Read it when |
+|---|---|---|
+| What we are building, who for, when it is done, non-goals | `PRODUCT.md` | Before proposing any feature or UI change |
+| Standing engineering rules | this file and `AGENTS.md` | Always |
+| Mid-lane domain truth | `GAME_MECHANICS.md` | Before touching any gameplay feature |
+| Runnable procedures | `.claude/skills/` | When running or debugging the pipeline |
+| Current state: counts, metrics, phase, open items, decisions | `.claude/CONTEXT.md` | Before claiming anything about current status |
+| How we work together | `.claude/COLLAB.md` | At session start |
+| What happened and when | `git log` | When history matters |
+
+**The state rule: `.claude/CONTEXT.md` is the only file that may contain project state — a row count, a metric, a date, a phase, or a done/not-done claim.** Every other document holds rules, product intent, or domain constants only. A session that changes project state edits `CONTEXT.md` and no other document. There is no session log; `git log` is the log.
+
+Not project state, and therefore allowed elsewhere: domain constants and patch-verification dates in `GAME_MECHANICS.md`, dated decision entries, code constants, and thresholds declared in source.
+
+Never trust a status claim in a chat handoff, a plan, or a summary over the repository. Verify against the tree.
+
 ## Module Contracts
 
 Each module owns exactly one layer. Never reach across. Notebooks are sandboxed exploration and are never imported by `src/`.
@@ -23,6 +43,14 @@ Collection and processing retain all ranked roles. The current analytical produc
 `game_version` must be stored on every match row. Parse it from `match["info"]["gameVersion"]` in `processor.py` and keep the first two dot-separated segments. Riot API values use labels such as `"16.12.xxxxxxx"`; project discussions may call the same patch `26.12`. Store the API-derived `16.12` form and never hardcode a current patch.
 
 `GAME_MECHANICS.md` is authoritative for mid-lane domain mechanics. Read it before changing roam, death-context, throw/comeback, wave-state, or objective-timing features. Current dashboard labels such as Throw, Comeback, Overextension, Deficit Fight, Post-Laning Throw, and roam-derived cluster features are heuristic proxies from single-player timeline data unless the code explicitly parses full team/opponent state.
+
+## Data Integrity
+
+Analytics are only useful if the underlying data is correct. Before changing analytics logic, verify match filtering, role and lane filtering, champion identity, patch and season handling, duplicate matches, timestamps, participant mapping, opponent mapping, win/loss interpretation, and timeline alignment.
+
+Be especially careful with off-role games, duplicate games, incomplete timeline data, stale derived tables, stale cached values, and metrics calculated from the wrong scope.
+
+A visually impressive statistic calculated incorrectly is worse than no statistic.
 
 ## Code Conventions
 
@@ -72,7 +100,3 @@ Three levels, each with a clear scope:
 **Notebook smoke tests** — before committing a finished notebook, restart the kernel and run all cells top to bottom. A notebook that only works with leftover kernel state is broken.
 
 No end-to-end test against the real Riot API in CI — the free key expires every 24h, making automated tests impractical. Unit tests with fixtures are sufficient.
-
-## Skills
-
-Pipeline runs, DuckDB verification, and the deployment snapshot live in the `pipeline-ops` skill. Layer-by-layer failure triage lives in the `debug-pipeline` skill.
