@@ -2,6 +2,8 @@
 
 Single-summoner League of Legends analytics built with the Riot Games API, DuckDB, K-Means clustering, and Streamlit. The current analytical scope is ranked mid-lane games from Season 16; collection and processing retain all roles for future expansion.
 
+See [`PRODUCT.md`](PRODUCT.md) for what this project is for and what is deliberately out of scope, and [`.claude/CONTEXT.md`](.claude/CONTEXT.md) for current status.
+
 ## Development Setup
 
 Install `uv`, then run from the repository root in PowerShell:

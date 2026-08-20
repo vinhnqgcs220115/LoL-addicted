@@ -1,70 +1,74 @@
 # Collaboration Guide
 
-This file defines how decisions, implementation, review, and handoffs work. Stable engineering rules belong in `CLAUDE.md`; runnable procedures — pipeline commands, DuckDB verification, failure triage — belong in `.claude/skills/`; current plans, metrics, and decisions belong in `CONTEXT.md`; chat-session handoffs belong in `SESSIONS.md`; implementation details belong in code and tests. Do not duplicate them here.
+How the user and the tools work together. Where facts live is defined in `.claude/CLAUDE.md`; this file covers only process.
 
 ## Roles
 
-- **User**: owns product direction, domain decisions, priorities, and final approval.
-- **Reviewer/planner**: challenges assumptions, checks architecture and product utility, maintains specifications, and prepares scoped implementation prompts. In the split-agent workflow, this is typically Claude web and it does not edit implementation code.
-- **Coding agent**: implements the approved scope, adds or updates tests, runs verification, and reports exact changes and outputs. It may choose routine implementation details but must surface product, domain, threshold, and architecture decisions.
+- **User** — owns product direction, domain decisions, priorities, and final approval. Sole editor of the `USER-OWNED` sections in `PRODUCT.md`.
+- **Claude Code** — the only agent that plans, implements, tests, and verifies. It has the repository, so it does not need to be told what is in it.
+- **ChatGPT / Claude web** — domain and product thinking only: League mechanics, what a metric means, whether a chart answers a real question. No implementation prompts, no plans, no reviews of code they cannot read.
 
-Self-verification is required, but it is not final approval. The user or an independent reviewer decides whether the result satisfies the specification.
+Anything decided in a web chat that must survive is written into `PRODUCT.md` or `CONTEXT.md` by the user or by Claude Code. A decision that exists only in a chat transcript does not exist.
 
-## Workflow
+## The repository is the handoff
 
-1. User and reviewer agree on the problem, intended user action, constraints, and acceptance criteria.
-2. Reviewer checks the proposal against `CLAUDE.md`, `CONTEXT.md`, `SESSIONS.md`, and relevant code before writing an implementation prompt.
-3. Coding agent reads the named files, implements only the approved scope, and runs the required checks.
-4. Coding agent reports changed files, verification commands, exact results, and unresolved concerns.
-5. Reviewer compares the implementation with the acceptance criteria and returns numbered findings ordered by severity.
-6. Required fixes go back to the coding agent as a new scoped task.
-7. A phase closes only when acceptance criteria and relevant tests pass, production-like data is verified when applicable, `CONTEXT.md` reflects phase/status changes, and `SESSIONS.md` records the session handoff.
+Do not write handoff prompts. A prose summary of a prose summary loses fidelity every hop, and that is what produced the contradictions this process replaced.
 
-Direct user-to-agent work is allowed. The same decision gates, verification, and review requirements still apply.
+A new session starts with:
 
-## Operating Rules
+```text
+Read PRODUCT.md, .claude/CLAUDE.md, .claude/CONTEXT.md, .claude/COLLAB.md.
+Run: git log --oneline -10
+Task: [what you want done]
+```
 
-- Read `CLAUDE.md`, `CONTEXT.md`, `SESSIONS.md`, and the target files before proposing or implementing changes.
-- Challenge weak assumptions before implementation, especially for user-facing features and fixed thresholds.
-- Do not silently make domain decisions. State the unresolved choice and what evidence is needed.
-- Keep tasks scoped. Do not combine broad audits and broad fixes in one agent prompt.
-- Verify actual code and output; do not rely on an agent's claim that something was changed.
-- After a direction change, search `.claude/`, affected source files, tests, and dependency files for stale references.
-- Check changed function signatures for unused parameters and orphaned helpers.
-- Validate deployment constraints when deployment architecture is chosen, not at release time.
-- Update `CONTEXT.md` whenever phase status, measured data, or an architectural decision changes.
-- Update `SESSIONS.md` during long sessions, before context compaction when possible, and at session close with changed files, verification, generated-data effects, and open items.
-- For any task sent to more than one concurrently-active coding-agent session, or any task marked read-only/investigation-only: suppress session-side `SESSIONS.md` writes. The reviewer or user performs one consolidated write after collecting each session's chat-only handoff.
+That is the whole handoff. If something must survive the session, it belongs in `PRODUCT.md`, `CONTEXT.md`, the code, or a test — not in a message.
 
-## Recurring Failure Modes
+## Session protocol
+
+**Start** — read the four files above. If the task touches gameplay labels or mechanics, read `GAME_MECHANICS.md` too. Only `.claude/CLAUDE.md` auto-loads; open the rest deliberately.
+
+**During** — implement the approved scope. Surface product, domain, threshold, and architecture choices to the user instead of deciding them. Routine implementation details are the agent's to pick.
+
+**End** — report changed files, verification commands with their exact output, generated-data effects, and unresolved concerns. Update `CONTEXT.md` **only if project state actually changed**. Commit with a message that describes the behavior change; the commit is the record.
+
+Self-verification is not approval. The user decides whether the result satisfies the specification.
+
+## Operating rules
+
+- Check `PRODUCT.md` non-goals before proposing a feature. Most "improvements" are already closed decisions.
+- Verify status against the tree, never against a document or a summary. Documents go stale; `git ls-files`, `git log`, and a DuckDB query do not.
+- Challenge weak assumptions before implementing, especially user-facing features and fixed thresholds.
+- Do not silently make domain decisions. State the unresolved choice and what evidence would settle it.
+- Keep tasks scoped. Do not combine a broad audit and broad fixes in one task.
+- After a direction change, search `.claude/`, source, tests, and dependency files for stale references.
+- Validate deployment constraints when the architecture is chosen, not at release time.
+- Never commit a doc-only change that restates a fact already living in another file.
+
+## Recurring failure modes
 
 | Failure | Required response |
 |---|---|
 | Scope expansion | Remove unrequested features, abstractions, parameters, and defaults. |
-| Cross-file drift | Search every affected document, source module, test, and dependency declaration. |
-| Spec and code disagree | Inspect code and real output first; then decide whether code or documentation is wrong. |
-| Agent reports a different implementation | Review the exact diff or changed snippet before accepting it. |
+| Cross-file drift | Search every affected document, module, test, and dependency declaration. |
+| Spec and code disagree | Inspect code and real output first, then decide which one is wrong. |
+| Agent reports a change it did not make | Review the exact diff before accepting it. |
 | Domain choice filled silently | Stop and return the decision to the user. |
-| Tests pass but persisted data is stale | Run the relevant pipeline and inspect real DuckDB output. |
-| Feature lacks a concrete use | Define what the user does with the output before implementation. |
-| Session context is lost | Record non-obvious rationale in `SESSIONS.md`, update `CONTEXT.md` only if project status changed, and produce a factual handoff. |
-| Concurrent or investigation-only sessions write unauthorized or conflicting `SESSIONS.md` entries | Suppress session-side writes for parallel/investigation tasks; reviewer performs one consolidated write. |
+| Tests pass but persisted data is stale | Run the pipeline and inspect real DuckDB output. |
+| Feature lacks a concrete use | Name the sentence in `PRODUCT.md` section 3 it serves, or cut it. |
+| A document claims something the repo contradicts | The repo wins. Fix the document in the same change. |
 
-## Prompt Patterns
+## Prompt patterns
 
 ### Implementation
 
 ```text
-Read CLAUDE.md, CONTEXT.md, SESSIONS.md, and [target files] before changing anything.
+Read PRODUCT.md, .claude/CLAUDE.md, .claude/CONTEXT.md, and [target files] first.
 
 Goal: [observable outcome]
-Constraints: [boundaries and decisions already made]
+Constraints: [decisions already made]
 
 Part A - [file]
-- [specific change]
-- Acceptance: [behavior or output]
-
-Part B - [file]
 - [specific change]
 - Acceptance: [behavior or output]
 
@@ -72,44 +76,21 @@ Verify with: [commands or queries]
 Report changed files, exact results, and unresolved concerns.
 ```
 
-### Consistency Sweep
-
-```text
-Search .claude/, affected source files, tests, and dependencies for [old concept].
-List every occurrence first, then update only confirmed stale references.
-```
-
-### Decision Gate
+### Decision gate
 
 ```text
 Implement [approved scope]. Do not decide [open choice].
-Return the choice to me after producing [evidence or output].
+Return the choice to me after producing [evidence].
 ```
 
 ### Review
 
 ```text
-Compare the changed files with these acceptance criteria: [criteria].
+Compare the changed files against these acceptance criteria: [criteria].
 Report findings first, ordered by severity, with file and line references.
 Verify each finding independently; do not apply fixes yet.
 ```
 
-### Session Close
-
-```text
-Produce a factual handoff: files changed, behavior changed, verification results,
-current phase status, and open items. Update SESSIONS.md every session; update CONTEXT.md when its state changed.
-```
-
-### Session Close (Parallel or Investigation-Only)
-
-```text
-  Produce a factual handoff: files changed, behavior changed, verification results,
-  current phase status, and open items. Do not update SESSIONS.md — report the
-  handoff in this chat only. The reviewer or user applies one consolidated entry
-  after collecting handoffs from every session in this batch.
-```
-
 ## Maintenance
 
-Update this file only when a recurring collaboration pattern or role boundary changes. Do not add current data counts, model constants, agent versions, module workflows, or temporary phase details; those have more authoritative homes.
+Update this file only when a role boundary or a recurring collaboration pattern changes. It contains no counts, no status, no dates, and no module details — those have other homes.

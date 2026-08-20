@@ -1,122 +1,152 @@
 # Project Context
 
-**Phase:** 4 complete
-**Last updated:** 2026-07-18
+The only file in this repository that may contain project state — counts, metrics, dates, phase, or a done/not-done claim. Everything here must be verifiable against the tree or a stored artifact. Anything that cannot be verified is marked as such.
+
+**Phase:** Phase 4 complete. Product definition and dashboard rework in progress.
+**Last verified:** 2026-08-12
 
 ---
 
-## Roadmap
+## Verified state
 
-### Phase 1 — Data Collection
-- [x] Scaffold `src/collector.py`: `get_puuid()`, `get_match_ids()`, `get_match_detail()`, `get_match_timeline()`
-- [x] Scaffold `src/processor.py`: `init_schema()`, `process_match()`
-- [x] Run full pipeline end-to-end
-- [x] Verify: 522 rows in `matches`, 15,523 rows in `match_timelines`
+Verified 2026-08-12 by querying committed artifacts and running the suite in this repository.
 
-### Phase 2 — EDA & Feature Engineering
-- [x] `notebooks/01_eda.ipynb`: death context analysis, heuristic throw pattern detection, approximate roaming timing analysis (not generic win rate / KDA charts)
-- [x] `src/features.py`: `death_context()`, `is_throw_game()`, `roam_timing()`, `tilt_index`, `champion_matchup_stats()`, temporal features
-- [x] Verify: `feature_matrix` populated with no NULL values (337 Season 16 mid rows; 41 throw games, 53 comebacks)
+| Check | Value | How verified |
+|---|---|---|
+| Deploy DB matches | 396 | query on `data/lol_deploy.duckdb` |
+| Deploy DB timelines | 11,795 | same |
+| Deploy DB deaths | 3,117 | same |
+| Deploy DB roam windows | 84 | same |
+| Deploy DB feature rows | 396 | same |
+| Deploy DB cluster labels | 396 | same |
+| Deploy DB cluster sizes | 188 / 73 / 128 / 7 | same |
+| Deploy DB match date range | 2026-01-10 to 2026-07-18 | same |
+| Tests | 75 passed | `pytest tests -q` |
+| Lint | clean | `ruff check src tests dashboard scripts` |
+| `models/cluster_centroids.json` | tracked | `git ls-files` |
+| `data/lol_deploy.duckdb` | tracked, committed at `e4b8f07` | `git log` |
+| Worktree at session start | clean | `git status` |
 
-### Phase 3 — ML Models
-- [x] `notebooks/02_clustering.ipynb`: executed centroid heatmap, cluster summary, and average gold trajectory analysis without pre-naming archetypes
-- [x] `src/models.py`: uses `gold_delta`, `total_deaths`, `deaths_while_ahead`, `tilt_spiral_ratio`, `max_death_streak`, `total_roams`, `avg_cs_sacrifice`, `roam_impact_rate`, and `tilt_index` as `FEATURE_COLS`
-- [x] Scale with `StandardScaler`, then fit `KMeans(n_clusters=4, random_state=42, n_init=20)`; reject NULL and non-finite feature values
-- [x] Save `models/kmeans.pkl` and `models/scaler.pkl`, print cluster sizes and silhouette score, and write `cluster_labels` to DuckDB
+Local-only, gitignored, verified 2026-08-12 on this machine but not reproducible from the repository:
 
-### Phase 4 — Dashboard & Deploy
-- [x] `dashboard/app.py`: Overview / Champions / Patterns tabs (3 tabs, no Predictor)
-- [x] Deployed to Streamlit Cloud with public URL
-- [x] README.md updated with deployment details
-- [x] Add a fail-closed guard that refuses to persist a retrain when any cluster's centroid is no longer nearest to its own previously-named centroid
-- [x] Persist per-window roam results in source and sanitized deployment databases
-- [x] Add Overview narrative, champion matchup icons/context, and plain-language pattern cards
+| Check | Value |
+|---|---|
+| `data/raw/` files | 1,188 (594 detail + 594 timeline) |
+| Source DB matches / timelines / deaths | 594 / 17,566 / 4,743 |
+| Source DB feature rows / labels | 396 / 396 |
+| Source DB match date range | 2025-09-11 to 2026-07-18 |
 
-### Stretch Goal — Pro Comparison (if Phase 2–4 finish on time)
-- [ ] Extend `collector.py` with KR/EUW server routing
-- [ ] Collect ranked mid games from 3–5 known Challenger mid players (e.g. Faker, Chovy)
-- [ ] Compare CS diff curve and roaming timing against personal data on same champions
+Not verified since 2026-07-18 — treat as stale until re-run:
 
----
-
-## Last Verified Status
-
-Counts below are from the verified 2026-07-18 refresh and deployment snapshot rebuild.
-
-```
-Matches collected    : 594 (396 S16 mid, 71 S16 off-role, 127 pre-S16)
-Matches NULLs        : win=0, match_id=0, champion_name=0, game_datetime=0
-Matches date range   : 2025-09-11 to 2026-07-18
-Mid opponent fields  : champion=396/396, cs=396/396
-Death attribution    : reported=4,743, stored=4,743, mismatched matches=0
-Timelines collected  : 594 (17,566 timeline rows)
-Feature matrix       : 396 rows, 19 columns, 0 NULL — Season 16 mid only
-Clustering           : trained — 396 labels, silhouette 0.227, cluster sizes 188 / 73 / 128 / 7
-Tests                : 75 passed; Ruff clean
-Deployment snapshot  : 396 sanitized matches; 11,795 timelines; 3,117 deaths; 84 roam windows; 0 original Riot match IDs
-Dashboard            : 3 tabs rendered locally with 0 Streamlit exceptions; public app not redeployed or re-verified in this refresh
-Gameplay proxy caveat: dashboard labels are qualified in UI; underlying throw/comeback, death-context, and roam-derived metrics remain heuristic proxies
-Live URL             : https://myishaa.streamlit.app/
-```
+- Silhouette score 0.227.
+- Live app at `https://myishaa.streamlit.app/` serving the current snapshot. The snapshot is committed; the deployment itself has not been loaded and checked since.
+- The three files in `docs/screenshots/` predate the champion-icon and card UI.
 
 ---
 
-## Decisions Log
+## Open items
+
+Ordered by dependency, from the 2026-08-12 pipeline audit. Stage 0 blocks stages 1-3.
+
+**Ship immediately — blocked by nothing, no rebuild needed**
+
+- U3 — sample-size gating. Verified 2026-08-12 against `champion_matchup_stats` on the deploy DB: 71 matchup pairs render, 46 receive a colored win-rate verdict chip at the 55% / 45% cut, 39 of those from 3 games or fewer, and 32 read exactly 0% or 100%. Only 5 pairs have 5 or more games. Patch rates run 5-60 games per patch with no interval; time-of-day the same.
+- Quick win — `opp_gold_earned` is collected and stored on every match row and read by nothing. It is the only opponent-anchored gold figure available before D1 lands, and it yields a real end-of-game gold differential per matchup today with no reparse. Partially serves the `PRODUCT.md` section 4 baseline-comparison tier ahead of stage 0.
+- U4 — rename or remove every mislabeled proxy. "Deaths while ahead", "Overextension", "Deficit Fight" all compare the player to their own season average, not to the opponent. `PRODUCT.md` section 8 violation as displayed.
+
+**Stage 0 — the reparse. No Riot API calls. Blocks stages 1-3.**
+
+- D1 — store all ten `participantFrames` per timeline frame instead of one. Verified 2026-08-12 against `tests/fixtures/sample_match_timeline.json`: every frame carries all ten participants with `totalGold`, `xp`, `minionsKilled`, `level`, and `position`. Unlocks a true per-minute lane differential and retires every self-referential baseline in the project.
+- D2 — parse the timeline event stream. One representative match carries 61 `CHAMPION_KILL` (with `position`, `killerId`, `assistingParticipantIds`), 126 `WARD_PLACED`, 60 `TURRET_PLATE_DESTROYED`, 15 `BUILDING_KILL`, 9 `ELITE_MONSTER_KILL`. `extract_death_rows()` reads the kill event and keeps only its timestamp.
+- Cost for D1 + D2 together: `processor.py` parsing, schema change, `_assert_table_columns` update, new fixtures and tests, full `rebuild`, `FEATURE_MATRIX_COLUMNS` update in `build_deploy_db.py` (raises on drift by design), re-verified deploy snapshot. No collection, no key, no rate limit.
+
+**Stage 1 — honest features. Blocked by stage 0.**
+
+- D3 — fix roam detection. Verified 2026-08-12 by re-running the detector over the deploy DB: the `len(block) < 2` guard in `roam_timing()` alone accounts for the entire shortfall. Minimum contiguous minutes of 1 yields 308 of 390 games and 513 windows; the current value of 2 yields 81 games and 84 windows, exactly what is persisted; 3 yields 15. Riot samples once per minute and a mid roam takes 30-60 seconds, so the typical roam occupies one frame. Replace contiguity with a position-change threshold or corroboration from a kill/assist event.
+- D4 — redefine Throw and Comeback on real opponent gold difference at minute 14, or rename them. Current definition is gold at 14 versus the player's own season mean crossed with the result.
+- Replace every self-referential "lead" with the true lane differential.
+- Deaths by map region, now that death position exists.
+
+**Stage 2 — model decision. Blocked by stage 1.**
+
+- D5 — rebuild the feature set. `total_deaths`, `tilt_spiral_ratio`, and `max_death_streak` correlate pairwise at r = 0.75-0.82, so K-Means is close to one-dimensional on death count. `roam_impact_rate` is the neutral fill value 0.5 in 318 of 396 rows. Reconsider whether `tilt_index`, a rolling win rate of prior games, belongs in a model meant to describe in-game behavior.
+- M1 — decide whether K-Means survives. Cluster win rates are 76.6% / 50.7% / 34.6% against `total_deaths` z-scores of -1.03 / +0.22 / +0.60, so the clusters restate "you lose the games where you die more". `PRODUCT.md` section 8 requires interpretation to be earned. User decision, not an agent default.
+
+**Stage 3 — dashboard rebuild. Blocked by stage 1; U1's narrative layer by stage 2.**
+
+- U1 — game list and match detail view. `PRODUCT.md` 30-second test sentence 3 and done-criterion 5 both require the player to leave knowing which games to rewatch; there is currently no game list, no match detail, and no path from a pattern back to its games. Zero coverage, largest single product gap. `src/mapping.py` and the minimap assets already exist and are tested but are imported by nothing outside `tests/test_mapping.py`; `roam_windows` and per-minute `position_x`/`position_y` ship in the deploy DB and are queried by no dashboard code. **Privacy flag:** the known-issue below accepts `game_datetime` retention in the deploy DB as a portfolio-scale risk, but that assessment predates any per-game view. A dated game list plus champion plus patch is materially more identifying than a season aggregate. Not a blocker and not an agent decision — decide it before U1 ships, not after.
+- U2 — every tab opens with a conclusion, evidence second, raw numbers as reference.
+- U5 — demote the OP.GG-parity surface to a labeled reference strip.
+- U6 — rebuild Champions around champion class buckets rather than pairs.
+
+**Independent — blocked by nothing, needs one user decision**
+
+- D6 — champion class mapping. Riot Data Dragon tags are coarser than "control mage" and "early-pressure assassin"; the category list is a product decision.
+
+**Housekeeping**
+
+- Confirm the two `UNCONFIRMED` reconstructions in `PRODUCT.md` and supply the two `<FILL IN>` fragments lost in the source paste: the UI evaluation question ("Can a player understand t...") and the body of the "Personal-first Scope" section.
+- Recapture `docs/screenshots/` after the dashboard rework, not before.
+- Re-verify the live deployment and record the result here.
+
+## Known issues
+
+Accepted limitations. Not scheduled work.
+
+- Throw, Comeback, Overextension, Deficit Fight, Post-Laning Throw, and roam-impact metrics are heuristic proxies from single-player timeline data. The UI qualifies them. True ground truth needs fuller team, opponent, objective, and vision state.
+- Cluster 3 (n=7) is an outlier bucket, not an under-sampled archetype. Its defining feature `avg_cs_sacrifice` sits at z = +7.01, the signature of the roam detector misfiring rather than of a behavior pattern awaiting more games. Corrected 2026-08-12; the previous entry recorded it as deliberately uncharacterized. Clusters 0/1/2 are named from centroid review and are subject to the M1 decision above.
+- The centroid-binding guard has no absolute-distance cutoff. It refuses to persist a retrain whenever any cluster's centroid is no longer nearest its own previously-named centroid — including a clean bijective permutation — and performs no remapping.
+- `game_datetime` is retained in the deploy DB. Timestamps plus champion and version data could identify matches on public sites; accepted for a portfolio project.
+
+## Backlog
+
+Not part of the definition of done. May be abandoned without ceremony.
+
+- Pro comparison: KR/EUW routing in `collector.py`, collect ranked mid games from 3–5 Challenger mids, compare CS-diff curve and roam timing on shared champions.
+- All-role analytics: role-aware opponent extraction, direct tests, full DuckDB rebuild.
+
+---
+
+## Decisions log
 
 | Decision | Rationale |
 |---|---|
 | DuckDB over SQLite | Window functions and analytical queries without a server |
-| K-Means over XGBoost for modeling | Win predictor removed; clustering behavioral aggregates does not benefit from gradient boosting |
-| Cluster names remain a user decision | Names must follow centroid and trajectory review; pre-naming would imply unsupported behavior |
-| Clusters 0/1/2 named from centroid review; cluster 3 (n=7) left unnamed | Cluster 3's sample size still too small to support a name; the other three had clear, distinct centroid signals. |
-| K-Means output IDs are guarded, not aligned, before persistence | K-Means numeric IDs are arbitrary; the guard refuses to persist a retrain whenever any cluster's centroid is no longer closest to its own previously-named centroid, including a clean bijective permutation — it does not remap IDs |
+| K-Means over XGBoost | Win predictor removed; clustering behavioral aggregates does not benefit from gradient boosting |
+| Cluster names follow centroid review | Pre-naming would imply unsupported behavior |
+| Clusters 0/1/2 named; cluster 3 left numeric | n=7 is too small to support a name |
+| K-Means IDs guarded, not aligned, before persistence | Numeric IDs are arbitrary; the guard rejects a drifted binding rather than remapping it |
 | Plotly over Matplotlib | Interactive charts required in Streamlit |
 | `requests` over `httpx` | Sync is sufficient at this data scale; simpler API |
-| Ranked Solo/Duo only (queue=420) | Cleaner signal; removes ARAM and normal queue noise |
+| Ranked Solo/Duo only (queue 420) | Cleaner signal; removes ARAM and normal-queue noise |
 | Raw JSON saved before processing | Allows re-processing without re-hitting the API |
-| Predictor tab removed | Manual input form has no practical use case during or after a game |
-| EDA refocused to death context / throw detection / roaming | More differentiated from OP.GG; directly answers "what am I doing wrong" |
-| Win predictor model removed | Model output not surfaceable in a useful way; clustering is sufficient |
-| Pro comparison added as stretch goal | Requires multi-server routing; blocked on Phase 2-4 completion |
-| Season 16 filter in feature matrix | S15 gold rates differ; mixed-era baselines distort `gold_lead_approx` and `gold_delta` |
-| Current analytics are mid-only | The project is personal and time-boxed; raw/processed off-role games remain available for future role-aware expansion |
-| Dashboard derives cluster means from DuckDB | `models/*.pkl` stay local and gitignored; feature means come from `feature_matrix` joined to `cluster_labels` |
-| Deployment uses committed `data/lol_deploy.duckdb` | Streamlit Cloud has no persistent disk; S3/LFS adds infra complexity for <10 MB; simple git commit is correct at this scale |
-| tilt_index scoped to S16 mid only | Consistent with ANALYSIS_ROLE filter; loses S15 rolling context for first S16 games, accepted at this data scale |
-| game_datetime retained in deploy DB | Timestamps plus champion/version could identify matches on public sites; accepted risk for a portfolio project |
-| Gameplay labels stay heuristic until full state is parsed | Current throw/comeback, death-context, and roam-impact labels use personal timeline proxies; `GAME_MECHANICS.md` owns the domain caveats |
-| README screenshots added | Three dashboard screenshots exist under docs/screenshots/ and are referenced from README.md. Note: they predate the newer champion-icon/card UI and should be recaptured when convenient. |
-
-### Deployment notes (Phase 4)
-
-Two DuckDB files, two different purposes:
-- `data/lol.duckdb` — development DB, gitignored, rebuilt locally from raw JSON
-- `data/lol_deploy.duckdb` — production read-only artifact, committed to git, read by the dashboard
-
-To update deployed data: verify `lol.duckdb`, run `.\scripts\workflow.ps1 deploy-db`, then commit the generated file. The dashboard must read from `lol_deploy.duckdb` in read-only mode, not `lol.duckdb`.
-
-Before a public deployment commit, review residual re-identification risk in the deployment database: match IDs are replaced with surrogates, but game_datetime plus champion/version data remains.
+| Predictor tab removed | Manual input form has no use case during or after a game |
+| Win predictor model removed | Output was not surfaceable usefully; clustering is sufficient |
+| EDA refocused to death context, throw detection, roaming | More differentiated from OP.GG; answers "what am I doing wrong" |
+| Season 16 filter on the feature matrix | S15 gold rates differ; mixed-era baselines distort `gold_lead_approx` and `gold_delta` |
+| Analytics are mid-only | Personal and time-boxed; off-role games stay collected for future expansion |
+| `tilt_index` scoped to S16 mid | Consistent with `ANALYSIS_ROLE`; loses S15 rolling context for the first S16 games |
+| Dashboard derives cluster means from DuckDB | `models/*.pkl` stay local and gitignored |
+| Deployment uses committed `data/lol_deploy.duckdb` | Streamlit Cloud has no persistent disk; S3 or LFS adds infra for under 10 MB |
+| Gameplay labels stay heuristic until full state is parsed | `GAME_MECHANICS.md` owns the domain caveats |
+| Session log deleted, 2026-08-12 | `.claude/SESSIONS.md` accumulated superseded counts and corrections that stayed wrong in place, and contradicted the tree on three items. `git log` is the history; this file is the state |
+| Claude web scoped to domain input only, 2026-08-12 | A planner without repository access must be hand-fed context, and hand-fed context is what drifted across sessions |
+| Personal-first over portfolio-first, 2026-08-12 | Primary user is the player reviewing their own games. Portfolio value follows from a tool that genuinely serves its one user; it does not follow from statistic accumulation. `PRODUCT.md` section 1 is authoritative |
+| Insight hierarchy is the UI acceptance test, 2026-08-12 | Elements must reach layer 4 or higher, or be explicitly framed as reference rather than as a finding. Replaces "is this chart nice" with a checkable criterion. `PRODUCT.md` section 4 is authoritative |
 
 ---
 
-## Phase 4 Decisions
+## Deployment
 
-- `is_early_death` appears in the Patterns death-context breakdown.
-- Clusters 0/1/2 have user-facing names from centroid review; cluster 3 remains numeric because n=7 is too small to support a name.
-- Dashboard shows cluster sample sizes; cluster 3 currently has only 7 games and must not support strong conclusions.
-- Overview has a plain-language season headline; Champions shows both sides of each matchup with icons and games-colored sample size; Patterns leads with plain-language cards and keeps the z-score heatmap in an expander.
-- Keep the Champions tab mid-only. All-role support requires role-aware opponent extraction and a full rebuild.
+Two DuckDB files:
 
-## Known Issues
+- `data/lol.duckdb` — development, gitignored, rebuilt locally from raw JSON.
+- `data/lol_deploy.duckdb` — production read-only artifact, committed, opened read-only by the dashboard.
 
-- Non-blocking: underlying Throw/Comeback, Overextension, Deficit Fight, Post-Laning Throw, and roam impact metrics remain proxy labels. Dashboard UI now qualifies them; true gameplay-ground-truth analysis requires fuller team/opponent/objective/vision state.
-- Non-blocking: the public app still serves the last committed deployment snapshot until `data/lol_deploy.duckdb` is committed and pushed; the dated README screenshots still need recapture.
-- Before the next commit, add `models/cluster_centroids.json`; the reviewed binding snapshot is currently untracked, while `models/*.pkl` correctly remain ignored.
-
----
+To update deployed data: verify `lol.duckdb`, run `.\scripts\workflow.ps1 deploy-db`, review residual re-identification risk, then commit the generated file.
 
 ## Notes
 
-- Vietnam routing: `asia` for account-v1, `sea` for match-v5
-- Free API key expires every 24h — regenerate at `developer.riotgames.com`
-- Summoner identity is `GameName#TAG`; PUUID is fetched once and stored in `.env`
+- Vietnam routing: `asia` for account-v1, `sea` for match-v5.
+- Free API key expires every 24 hours; regenerate at `developer.riotgames.com`.
+- Summoner identity is `GameName#TAG`; PUUID is fetched once and stored in `.env`.

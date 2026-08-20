@@ -2,6 +2,26 @@
 
 Personal DS portfolio project — analyzing ranked LoL performance via the official Riot Games API. Single-summoner scope, no real-time in-game interaction. End product: a live Streamlit dashboard deployed on Streamlit Cloud.
 
+## Where Facts Live
+
+Every fact has exactly one home. Read the home file; do not restate its content elsewhere.
+
+| Kind of fact | Home | Read it when |
+|---|---|---|
+| What we are building, who for, when it is done, non-goals | `PRODUCT.md` | Before proposing any feature or UI change |
+| Standing engineering rules | this file and `AGENTS.md` | Always |
+| Mid-lane domain truth | `GAME_MECHANICS.md` | Before touching any gameplay feature |
+| Runnable procedures | `.claude/skills/` | When running or debugging the pipeline |
+| Current state: counts, metrics, phase, open items, decisions | `.claude/CONTEXT.md` | Before claiming anything about current status |
+| How we work together | `.claude/COLLAB.md` | At session start |
+| What happened and when | `git log` | When history matters |
+
+**The state rule: `.claude/CONTEXT.md` is the only file that may contain project state — a row count, a metric, a date, a phase, or a done/not-done claim.** Every other document holds rules, product intent, or domain constants only. A session that changes project state edits `CONTEXT.md` and no other document. There is no session log; `git log` is the log.
+
+Not project state, and therefore allowed elsewhere: domain constants and patch-verification dates in `GAME_MECHANICS.md`, dated decision entries, code constants, and thresholds declared in source.
+
+Never trust a status claim in a chat handoff, a plan, or a summary over the repository. Verify against the tree.
+
 ## Module Contracts
 
 Each module owns exactly one layer. Never reach across. Notebooks are sandboxed exploration and are never imported by `src/`.
@@ -72,7 +92,3 @@ Three levels, each with a clear scope:
 **Notebook smoke tests** — before committing a finished notebook, restart the kernel and run all cells top to bottom. A notebook that only works with leftover kernel state is broken.
 
 No end-to-end test against the real Riot API in CI — the free key expires every 24h, making automated tests impractical. Unit tests with fixtures are sufficient.
-
-## Skills
-
-Pipeline runs, DuckDB verification, and the deployment snapshot live in the `pipeline-ops` skill. Layer-by-layer failure triage lives in the `debug-pipeline` skill.

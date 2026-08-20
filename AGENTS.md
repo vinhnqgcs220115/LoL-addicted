@@ -1,5 +1,15 @@
 # Repository Guidelines
 
+## Read First
+
+`PRODUCT.md` defines what this project is for, who it is for, when it is done, and what is explicitly out of scope. Read it before proposing any feature or UI change; most "improvements" are already closed non-goals.
+
+`.claude/CONTEXT.md` is the only file that may contain project state — a row count, a metric, a date, a phase, or a done/not-done claim. Every other document holds rules, product intent, or domain constants. A change to project state edits `CONTEXT.md` and no other document. There is no session log; `git log` is the history.
+
+Not project state, and therefore allowed elsewhere: domain constants and patch-verification dates in `GAME_MECHANICS.md`, dated decision entries, code constants, and thresholds declared in source.
+
+Never trust a status claim in a chat handoff or summary over the repository. Verify against the tree.
+
 ## Project Structure & Module Organization
 
 - `src/collector.py` calls Riot APIs and writes immutable JSON to `data/raw/`.
