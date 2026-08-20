@@ -63,11 +63,25 @@ def fit_clusters(
     return model, scaler, labels, score
 
 
-def _guard_cluster_name_binding(
+def _align_clusters_to_names(
     profile: pd.DataFrame,
     scaler: StandardScaler,
     snapshot_path: Path,
-) -> None:
+) -> np.ndarray:
+    """Map this run's raw cluster IDs onto the previously named ones.
+
+    K-Means IDs are arbitrary and reshuffle whenever the dataset grows -- fitting
+    on 300, 340, 354, 380 and 396 rows of this dataset put the same low-death
+    centroid on IDs 1, 3, 2, 1 and 1. Refusing every such renumbering meant a
+    manual decision on essentially every refresh, so a clean renumbering is now
+    remapped instead of rejected.
+
+    What is still rejected is a mapping that is not one-to-one. If two clusters
+    are both nearest the same named centroid, the run no longer corresponds to
+    the names and no remapping can honestly fix that.
+
+    Returns an array where ``mapping[raw_id]`` is the named ID it becomes.
+    """
     expected_ids = list(range(N_CLUSTERS))
     current_profile = profile.copy()
     current_profile.index = current_profile.index.astype(int)
@@ -148,31 +162,38 @@ def _guard_cluster_name_binding(
         / feature_scales,
         axis=2,
     )
-    nearest_ids = distances.argmin(axis=1)
-    nearest_distances = distances.min(axis=1)
-    same_id_distances = distances.diagonal()
-    drifted_ids = [
-        cluster_id
-        for cluster_id in expected_ids
-        if nearest_distances[cluster_id] < same_id_distances[cluster_id]
-    ]
-    if drifted_ids:
+    mapping = distances.argmin(axis=1)
+
+    if len(set(mapping.tolist())) != N_CLUSTERS:
+        collisions = {
+            int(named_id): [
+                int(raw_id) for raw_id in expected_ids if mapping[raw_id] == named_id
+            ]
+            for named_id in sorted(set(mapping.tolist()))
+            if list(mapping).count(named_id) > 1
+        }
         details = "; ".join(
-            f"cluster_id {cluster_id} is closest to named cluster_id "
-            f"{nearest_ids[cluster_id]} (standardized distance "
-            f"{nearest_distances[cluster_id]:.3f}) instead of its own named "
-            f"centroid (distance {same_id_distances[cluster_id]:.3f}, margin "
-            f"{same_id_distances[cluster_id] - nearest_distances[cluster_id]:.3f})"
-            for cluster_id in drifted_ids
+            f"raw clusters {raw_ids} are all nearest named cluster_id {named_id}"
+            for named_id, raw_ids in collisions.items()
         )
         message = (
-            f"Cluster name binding drift detected: {details}. Refusing to persist "
-            "models or labels; review the cluster names and centroid snapshot."
+            f"Cluster name binding is ambiguous: {details}. The mapping is not "
+            "one-to-one, so this run no longer corresponds to the named "
+            "clusters. Refusing to persist models or labels; review the cluster "
+            "names and centroid snapshot."
         )
         warnings.warn(message, RuntimeWarning, stacklevel=2)
         raise RuntimeError(message)
 
-    print(f"Named centroid binding verified -> {snapshot_path}")
+    if not np.array_equal(mapping, np.asarray(expected_ids)):
+        moves = ", ".join(
+            f"{raw_id}->{int(mapping[raw_id])}" for raw_id in expected_ids
+        )
+        print(f"Cluster IDs renumbered by this fit; remapped to names: {moves}")
+    else:
+        print(f"Named centroid binding verified -> {snapshot_path}")
+
+    return mapping
 
 
 def train_and_persist(
@@ -192,19 +213,30 @@ def train_and_persist(
     labeled = feature_df[["match_id", *FEATURE_COLS]].copy()
     labeled["cluster_id"] = labels
     profile = labeled.groupby("cluster_id")[FEATURE_COLS].mean().sort_index()
-    cluster_sizes = pd.Series(labels).value_counts().sort_index().to_dict()
-
-    print(f"Cluster sizes     : {cluster_sizes}")
-    print(f"Silhouette score  : {score:.3f}")
-    print("Feature means by cluster:")
-    print(profile.round(3).to_string())
 
     models_dir.mkdir(parents=True, exist_ok=True)
-    _guard_cluster_name_binding(
+    mapping = _align_clusters_to_names(
         profile,
         scaler,
         models_dir / CENTROID_SNAPSHOT_FILE,
     )
+
+    # Renumber labels, the profile, and the model's own centres together, so the
+    # persisted model predicts named IDs rather than this run's arbitrary ones.
+    labels = mapping[labels]
+    profile.index = pd.Index(
+        [int(mapping[raw_id]) for raw_id in profile.index], name=profile.index.name
+    )
+    profile = profile.sort_index()
+    inverse = np.argsort(mapping)
+    model.cluster_centers_ = model.cluster_centers_[inverse]
+    model.labels_ = labels
+
+    cluster_sizes = pd.Series(labels).value_counts().sort_index().to_dict()
+    print(f"Cluster sizes     : {cluster_sizes}")
+    print(f"Silhouette score  : {score:.3f}")
+    print("Feature means by cluster:")
+    print(profile.round(3).to_string())
     joblib.dump(model, models_dir / "kmeans.pkl")
     joblib.dump(scaler, models_dir / "scaler.pkl")
 

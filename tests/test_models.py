@@ -12,6 +12,7 @@ import pytest
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
+from src import models
 from src.models import (
     CENTROID_SNAPSHOT_FILE,
     FEATURE_COLS,
@@ -38,6 +39,9 @@ def _fit_clusters_with_swapped_ids(
 ) -> tuple[KMeans, StandardScaler, np.ndarray, float]:
     model, scaler, labels, score = fit_clusters(feature_df)
     permutation = np.array([1, 0, 2, 3])
+    # A real renumbering moves the model's own centres with the labels; permuting
+    # only the labels would leave the fixture in a state K-Means never produces.
+    model.cluster_centers_ = model.cluster_centers_[np.argsort(permutation)]
     return model, scaler, permutation[labels], score
 
 
@@ -131,42 +135,74 @@ def test_unchanged_retrain_produces_no_binding_warning(tmp_path: Path) -> None:
     conn.close()
 
 
-def test_shuffled_centroids_warn_and_refuse_stale_names(
+def test_renumbered_clusters_are_remapped_not_refused(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """A clean renumbering must be undone, not turned into a manual decision.
+
+    K-Means IDs reshuffle whenever the dataset grows, so refusing every
+    renumbering meant a decision on essentially every refresh.
+    """
     conn, _feature_df = _populated_connection(tmp_path)
     original_labels = conn.execute(
         "SELECT match_id, cluster_id FROM cluster_labels ORDER BY match_id"
     ).fetchall()
-    snapshot_path = tmp_path / CENTROID_SNAPSHOT_FILE
-    original_snapshot = snapshot_path.read_bytes()
-    original_model = (tmp_path / "kmeans.pkl").read_bytes()
-    original_scaler = (tmp_path / "scaler.pkl").read_bytes()
-    monkeypatch.setattr(
-        "src.models.fit_clusters",
-        _fit_clusters_with_swapped_ids,
-    )
+    monkeypatch.setattr("src.models.fit_clusters", _fit_clusters_with_swapped_ids)
 
-    with pytest.warns(RuntimeWarning) as caught:
-        with pytest.raises(RuntimeError, match="Refusing to persist models or labels"):
-            train_and_persist(conn, tmp_path)
+    train_and_persist(conn, tmp_path)
 
-    message = str(caught[0].message)
-    assert "cluster_id 0 is closest to named cluster_id 1" in message
-    assert "cluster_id 1 is closest to named cluster_id 0" in message
-    assert "standardized distance" in message
-    assert "margin" in message
-    assert (
-        conn.execute(
-            "SELECT match_id, cluster_id FROM cluster_labels ORDER BY match_id"
-        ).fetchall()
-        == original_labels
-    )
-    assert snapshot_path.read_bytes() == original_snapshot
-    assert (tmp_path / "kmeans.pkl").read_bytes() == original_model
-    assert (tmp_path / "scaler.pkl").read_bytes() == original_scaler
+    remapped_labels = conn.execute(
+        "SELECT match_id, cluster_id FROM cluster_labels ORDER BY match_id"
+    ).fetchall()
+    # The swap is undone, so every game keeps the cluster it was already in.
+    assert remapped_labels == original_labels
+
+    # The persisted model predicts named IDs, not this run's raw ones.
+    model = joblib.load(tmp_path / "kmeans.pkl")
+    scaler = joblib.load(tmp_path / "scaler.pkl")
+    features = conn.execute(
+        f"SELECT {', '.join(FEATURE_COLS)} FROM feature_matrix ORDER BY match_id"
+    ).df()
+    predicted = model.predict(scaler.transform(features))
+    stored = [cluster_id for _match_id, cluster_id in remapped_labels]
+    assert list(predicted) == stored
     conn.close()
+
+
+def test_ambiguous_binding_still_refuses(tmp_path: Path) -> None:
+    """Two clusters nearest the same name is real drift, and must not persist."""
+    snapshot_path = tmp_path / CENTROID_SNAPSHOT_FILE
+    snapshot_path.write_text(
+        json.dumps({
+            "feature_cols": FEATURE_COLS,
+            "feature_scales": {column: 1.0 for column in FEATURE_COLS},
+            "centroids": {
+                str(cluster_id): {
+                    column: float(cluster_id * 10) for column in FEATURE_COLS
+                }
+                for cluster_id in range(4)
+            },
+        }),
+        encoding="utf-8",
+    )
+
+    # Clusters 0 and 1 both sit on top of named centroid 0.
+    profile = pd.DataFrame(
+        [
+            {column: 0.0 for column in FEATURE_COLS},
+            {column: 0.1 for column in FEATURE_COLS},
+            {column: 20.0 for column in FEATURE_COLS},
+            {column: 30.0 for column in FEATURE_COLS},
+        ],
+        index=pd.Index([0, 1, 2, 3], name="cluster_id"),
+    )
+    scaler = StandardScaler()
+    scaler.scale_ = np.ones(len(FEATURE_COLS))
+
+    with pytest.warns(RuntimeWarning, match="ambiguous"):
+        with pytest.raises(RuntimeError, match="Refusing to persist models or labels"):
+            models._align_clusters_to_names(profile, scaler, snapshot_path)
 
 
 def test_query_cluster_summary_returns_complete_feature_means(tmp_path: Path) -> None:

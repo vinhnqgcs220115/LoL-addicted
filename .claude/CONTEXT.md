@@ -17,11 +17,16 @@ Verified 2026-08-12 by querying committed artifacts and running the suite in thi
 | Deploy DB timelines | 11,795 | same |
 | Deploy DB deaths | 3,117 | same |
 | Deploy DB roam windows | 84 | same |
+| Deploy DB events | 29,423 | same |
+| Deploy DB opponent timeline | 11,795 rows, 0 NULL `opp_gold` | same |
+| Deploy DB death context | 3,117 rows, 0 NULL position, 2 NULL killer | same |
+| Deploy DB file size | 5.1 MB | `ls` |
+| Deploy DB privacy audit | no `puuid`, 0 original Riot match IDs | query |
 | Deploy DB feature rows | 396 | same |
 | Deploy DB cluster labels | 396 | same |
 | Deploy DB cluster sizes | 188 / 73 / 128 / 7 | same |
 | Deploy DB match date range | 2026-01-10 to 2026-07-18 | same |
-| Tests | 93 passed | `pytest tests -q` |
+| Tests | 94 passed | `pytest tests -q` |
 | Lint | clean | `ruff check src tests dashboard scripts` |
 | `models/cluster_centroids.json` | tracked | `git ls-files` |
 | `data/lol_deploy.duckdb` | tracked, committed at `e4b8f07` | `git log` |
@@ -35,12 +40,12 @@ Local-only, gitignored, verified 2026-08-12 on this machine but not reproducible
 | Source DB matches / timelines / deaths | 594 / 17,566 / 4,743 |
 | Source DB events | 99,342 (new, from the reparse) |
 | Source DB feature rows | 396 |
-| Source DB cluster labels | **absent** — the centroid guard blocked the retrain, see stage 0 below |
+| Source DB cluster labels | 396 |
 | Source DB match date range | 2025-09-11 to 2026-07-18 |
 | Opponent timeline coverage, S16 mid | 11,795 rows, 0 NULL opponent gold |
 | Death context coverage | 4,743 deaths, 0 NULL position, 5 NULL killer (executions and turrets) |
 
-The deploy-DB rows in the table above describe the **committed** snapshot, which predates the reparse and is unchanged. The source database has been rebuilt; the snapshot has not.
+The deploy-DB rows above describe the snapshot as rebuilt on 2026-08-12 from the reparsed source database.
 
 Not verified since 2026-07-18 — treat as stale until re-run:
 
@@ -96,13 +101,15 @@ D1 and D2 are both implemented and the source database has been rebuilt from the
 
 **What the opponent data shows, measured 2026-08-12 on the rebuilt source DB.** At minute 14 in Season 16 mid games: won games average **+269 gold and +11.0 CS** against the lane opponent; lost games average **-401 gold and +2.9 CS**. A 670-gold swing that the previous self-referential baseline could not see. CS differential stays positive in both, so the lane is not where the gold is lost.
 
-**Blocked: the deployment snapshot has not been regenerated.** `src/models.py` refused to persist labels because the retrain produced the permutation `0 → 3, 1 → 2, 2 → 0, 3 → 1`. Cluster sizes are 7 / 128 / 188 / 73 against the previous 188 / 73 / 128 / 7 and silhouette is unchanged at 0.227, so the clustering solution is identical and only the numeric IDs moved. The guard rejects a clean permutation by design and performs no remapping.
+**Unblocked and rebuilt 2026-08-12.** `src/models.py` now remaps a clean renumbering instead of refusing it.
 
-This is the same permutation recorded on 2026-07-18 and left open on 2026-07-19; it is a user decision and was not overridden. Consequences while it stands:
+- `_align_clusters_to_names()` replaces `_guard_cluster_name_binding()`. It matches each raw cluster to its nearest named centroid and, when that matching is one-to-one, renumbers the labels, the profile, and the model's own centres together so the persisted model predicts named IDs. When two raw clusters are nearest the same named centroid the mapping is not one-to-one, the run no longer corresponds to the names, and it still warns and refuses.
+- The rationale is the measurement recorded under M1: K-Means IDs reshuffle whenever the dataset grows, so refusing every renumbering meant a manual decision on essentially every refresh. Rejecting arbitrary renumbering was never what the guard was for; rejecting genuine drift is.
+- The retrain applied `0 → 3, 1 → 2, 2 → 0, 3 → 1` and produced cluster sizes 188 / 73 / 128 / 7 with silhouette 0.227, so each name is back on its own cluster and dashboard output is unchanged.
+- Deploy snapshot rebuilt and audited: no `puuid`, zero original Riot match IDs, zero orphan feature or label rows, complete opponent columns, 5.1 MB. The Streamlit app renders all four tabs with zero exceptions against it.
+- Privacy note: the snapshot now also carries per-death positions and `killer_champion`, so each game exposes the enemy champions that killed the player. Coordinates are not identifying, but champion names alongside the retained `game_datetime` narrow a match further than before. This does not change the standing decision, and it strengthens the case for settling the Match History privacy item below before a per-game view ships.
 
-- The rebuilt `data/lol.duckdb` has no `cluster_labels` table, so `deploy-db` cannot run.
-- The committed `data/lol_deploy.duckdb` is unchanged and still carries the pre-reparse schema and data, so the live dashboard keeps working on the old snapshot. Nothing is broken; the new opponent data simply has not reached the UI.
-- Resolving it means either accepting the relabeling and updating the centroid snapshot and `CLUSTER_NAMES`, or settling M1 first and retiring the clusters. M1 is the deeper question, since the clusters restate death count.
+M1 remains open and is unaffected: the remap makes the clusters maintainable, it does not make them less circular.
 
 ### P2 — advanced analysis. Blocked by stage 0.
 
