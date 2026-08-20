@@ -16,10 +16,14 @@ from src.features import (  # noqa: E402
     ANALYSIS_ROLE,
     CURRENT_SEASON_START,
     champion_matchup_stats,
+    archetype_winrates,
+    champion_archetype_matchups,
+    champion_pool,
+    core_champions,
     champion_winrates,
     death_context,
-    opponent_archetype_winrates,
     personal_baseline,
+    pocket_picks,
 )
 from src.models import (  # noqa: E402
     FEATURE_COLS,
@@ -248,49 +252,119 @@ def _win_rate_chip(cell: str) -> str:
     )
 
 
+def _html_table(headers: list[str], rows: list[str], max_height: str = "420px") -> str:
+    """Wrap pre-rendered <tr> strings in the shared scrolling table shell."""
+    head = "".join(f"<th>{html.escape(header)}</th>" for header in headers)
+    return (
+        f"<style>{MATCHUP_TABLE_CSS}</style>"
+        f'<div class="matchup-table-wrap" style="max-height:{max_height}">'
+        '<table class="matchup-table">'
+        f"<thead><tr>{head}</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
+def _verdict_chip(matchup_class: str, eligible: bool = True) -> str:
+    """Render a classification as a colored chip."""
+    if not eligible:
+        tone, text = "neutral", "Reference only"
+    else:
+        tone = CLASS_TONE.get(matchup_class, "neutral")
+        text = matchup_class
+    return f'<span class="matchup-win-rate matchup-win-rate-{tone}">{text}</span>'
+
+
+def _reading(row, baseline: float, eligible: bool = True) -> str:
+    """One sentence saying what a row means and what it would take to be sure."""
+    if not eligible:
+        return "Mixes builds &mdash; a single label would misrepresent it."
+    if row.matchup_class == "Positive":
+        return "Clears your baseline."
+    if row.matchup_class == "Negative":
+        return "Falls below your baseline."
+    direction = "above" if row.winrate > baseline else "below"
+    needed = row.games_needed
+    if needed and needed == needed:
+        more = int(needed) - int(row.games)
+        if more > 0:
+            return (
+                f"Sits {direction} baseline, not yet separable from noise. "
+                f"About {more:,} more games at this rate would settle it."
+            )
+        return f"Sits {direction} baseline; borderline."
+    return "Too few games to project a direction from."
+
+
+def _pool_rows(pool: pd.DataFrame, baseline: float) -> str:
+    """Per-champion performance, richest first."""
+    rows = []
+    for row in pool.itertuples(index=False):
+        rows.append(
+            "<tr>"
+            f"<td>{_champion_cell(str(row.champion_name))}</td>"
+            f"<td>{html.escape(str(row.archetype))}</td>"
+            f"<td>{int(row.games):,}</td>"
+            f"<td>{int(row.wins)}&ndash;{int(row.losses)}</td>"
+            f"<td>{row.winrate:.1%}</td>"
+            f"<td>{row.winrate_lo:.0%}&ndash;{row.winrate_hi:.0%}</td>"
+            f"<td>{row.avg_kda:.2f}</td>"
+            f"<td>{row.cs_per_min:.1f}</td>"
+            f"<td>{row.gold_per_min:,.0f}</td>"
+            f"<td>{row.damage_per_min:,.0f}</td>"
+            f"<td>{row.cs_diff:+.1f}</td>"
+            f"<td>{row.gold_diff:+,.0f}</td>"
+            f"<td>{row.avg_duration_min:.0f}</td>"
+            "</tr>"
+        )
+    return _html_table(
+        ["Champion", "Archetype", "Games", "W\u2013L", "Win rate", "95% CI",
+         "KDA", "CS/min", "Gold/min", "Damage/min", "CS diff", "Gold diff",
+         "Avg length"],
+        rows,
+        max_height="520px",
+    )
+
+
+def _pocket_pick_rows(picks: pd.DataFrame) -> str:
+    """Rarely-played champions labeled by how far the evidence goes."""
+    rows = []
+    for row in picks.itertuples(index=False):
+        tone = "neutral" if row.label == "Insufficient Data" else "majority"
+        rows.append(
+            "<tr>"
+            f"<td>{_champion_cell(str(row.champion_name))}</td>"
+            f"<td>{html.escape(str(row.archetype))}</td>"
+            f"<td>{int(row.games):,}</td>"
+            f"<td>{row.winrate:.1%}</td>"
+            f"<td>{row.winrate_lo:.0%}&ndash;{row.winrate_hi:.0%}</td>"
+            f'<td><span class="matchup-win-rate matchup-win-rate-{tone}">'
+            f"{html.escape(str(row.label))}</span></td>"
+            f"<td>{row.evidence}</td>"
+            "</tr>"
+        )
+    return _html_table(
+        ["Champion", "Archetype", "Games", "Win rate", "95% CI", "Label", "Why"],
+        rows,
+    )
+
+
 def _archetype_rows(frame: pd.DataFrame, baseline: float) -> str:
-    """Render opponent archetypes with direction, interval, and what is missing."""
+    """Render archetype buckets with direction, interval, and what is missing."""
     rows = []
     for row in frame.itertuples(index=False):
-        if not row.verdict_eligible:
-            tone, verdict = "neutral", "Reference only"
-            note = "Mixes builds — a single label would misrepresent it."
-        elif row.matchup_class == "Positive":
-            tone, verdict = "majority", "Positive"
-            note = "Clears your baseline."
-        elif row.matchup_class == "Negative":
-            tone, verdict = "minority", "Negative"
-            note = "Falls below your baseline."
-        else:
-            tone, verdict = "neutral", "Uncertain"
-            direction = "above" if row.winrate > baseline else "below"
-            if row.games_needed and row.games_needed == row.games_needed:
-                more = int(row.games_needed) - int(row.games)
-                note = (
-                    f"Sits {direction} baseline, not yet separable from noise. "
-                    f"About {more:,} more games at this rate would settle it."
-                    if more > 0
-                    else f"Sits {direction} baseline; borderline."
-                )
-            else:
-                note = "Sits on your baseline; no sample size separates them."
-
+        eligible = bool(row.verdict_eligible)
         rows.append(
             "<tr>"
             f"<td>{html.escape(str(row.archetype))}</td>"
             f"<td>{int(row.games):,}</td>"
             f"<td>{row.winrate:.1%}</td>"
             f"<td>{row.winrate_lo:.0%}&ndash;{row.winrate_hi:.0%}</td>"
-            f'<td><span class="matchup-win-rate matchup-win-rate-{tone}">'
-            f"{verdict}</span></td>"
-            f"<td>{note}</td></tr>"
+            f"<td>{_verdict_chip(str(row.matchup_class), eligible)}</td>"
+            f"<td>{_reading(row, baseline, eligible)}</td>"
+            "</tr>"
         )
-    return (
-        f"<style>{MATCHUP_TABLE_CSS}</style>"
-        '<div class="matchup-table-wrap"><table class="matchup-table">'
-        "<thead><tr><th>Opponent archetype</th><th>Games</th><th>Win rate</th>"
-        "<th>95% CI</th><th>Verdict</th><th>Reading</th></tr></thead>"
-        f"<tbody>{''.join(rows)}</tbody></table></div>"
+    return _html_table(
+        ["Archetype", "Games", "Win rate", "95% CI", "Verdict", "Reading"], rows
     )
 
 
@@ -450,9 +524,30 @@ def _query_winrates(
 
 @st.cache_data
 def _query_archetypes(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int], side: str
+) -> pd.DataFrame:
+    return archetype_winrates(_conn, side)
+
+
+@st.cache_data
+def _query_pool(
     _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
 ) -> pd.DataFrame:
-    return opponent_archetype_winrates(_conn)
+    return champion_pool(_conn)
+
+
+@st.cache_data
+def _query_pocket_picks(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
+) -> pd.DataFrame:
+    return pocket_picks(_conn)
+
+
+@st.cache_data
+def _query_champion_matchups(
+    _conn: duckdb.DuckDBPyConnection, db_cache_key: tuple[int, int]
+) -> pd.DataFrame:
+    return champion_archetype_matchups(_conn)
 
 
 @st.cache_data
@@ -506,8 +601,8 @@ if selected_champion != "All Champions":
 cluster_summary = _query_clusters(conn, db_cache_key)
 cluster_summary["cluster_name"] = cluster_summary["cluster_id"].map(CLUSTER_NAMES)
 
-overview_tab, champions_tab, patterns_tab = st.tabs(
-    [" Overview", " Champions", " Patterns"]
+overview_tab, champions_tab, matchups_tab, patterns_tab = st.tabs(
+    [" Overview", " Champions", " Matchups", " Patterns"]
 )
 
 with overview_tab:
@@ -596,6 +691,52 @@ with overview_tab:
 
 with champions_tab:
     st.header("Champions")
+    st.caption("Which champions actually work for you, and how.")
+    baseline = _query_baseline(conn, db_cache_key)
+    pool = _query_pool(conn, db_cache_key)
+
+    if pool.empty:
+        st.info("No games in the current analysis scope.")
+    else:
+        st.subheader("What you play, and what you win on")
+        st.caption(
+            "Your pool grouped by the archetype of the champion *you* picked. "
+            "This is the shape of your play, not of your opponents."
+        )
+        st.html(
+            _archetype_rows(_query_archetypes(conn, db_cache_key, "own"), baseline)
+        )
+
+        st.subheader("Pocket picks")
+        picks = _query_pocket_picks(conn, db_cache_key)
+        core = ", ".join(sorted(core_champions(pool)))
+        st.caption(
+            f"Champions outside your core pool ({core}) that beat your "
+            f"{baseline:.1%} baseline. The label says how far the evidence "
+            "actually goes \u2014 a champion with one win is labelled "
+            "Insufficient Data, not recommended."
+        )
+        if picks.empty:
+            st.info(
+                "No champion outside your core pool is currently above your "
+                "baseline."
+            )
+        else:
+            st.html(_pocket_pick_rows(picks))
+
+        st.subheader("Your champion pool \u2014 reference")
+        st.caption(
+            "Every champion played in scope. CS diff and gold diff are against "
+            "the actual lane opponent at end of game."
+        )
+        pool_view = pool
+        if selected_champion != "All Champions":
+            pool_view = pool[pool["champion_name"] == selected_champion]
+        st.html(_pool_rows(pool_view, baseline))
+
+with matchups_tab:
+    st.header("Matchups")
+    st.caption("Which matchups are strong, weak, or uncertain for you.")
     if matchups.empty:
         st.info("Opponent data is unavailable for the current analysis scope.")
     else:
@@ -658,7 +799,34 @@ with champions_tab:
             "becomes possible. Champions whose archetype depends on their "
             "build are held out rather than folded into a bucket."
         )
-        st.html(_archetype_rows(_query_archetypes(conn, db_cache_key), baseline))
+        st.html(
+            _archetype_rows(
+                _query_archetypes(conn, db_cache_key, "opponent"), baseline
+            )
+        )
+
+        champion_matchups = _query_champion_matchups(conn, db_cache_key)
+        strong = champion_matchups[champion_matchups["matchup_class"] != "Uncertain"]
+        st.subheader("Specific champion into archetype")
+        if strong.empty:
+            st.info(
+                "No champion-into-archetype combination has enough games to "
+                "separate it from your baseline yet."
+            )
+        else:
+            st.caption(
+                "One level finer than the table above: your champion against a "
+                "kind of opponent, where the sample still supports a verdict."
+            )
+            for row in strong.itertuples(index=False):
+                st.markdown(
+                    f"- **{row.champion_name} into {row.archetype}** \u2014 you "
+                    f"win **{row.winrate:.0%}** of {int(row.games)} games "
+                    f"({int(row.wins)}W\u2013{int(row.games) - int(row.wins)}L, "
+                    f"95% CI {row.winrate_lo:.0%}\u2013{row.winrate_hi:.0%}). "
+                    f"{'Above' if row.matchup_class == 'Positive' else 'Below'} "
+                    "your baseline."
+                )
 
         st.subheader("Individual matchups — reference")
         st.caption(

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import duckdb
+import pandas as pd
+import pytest
 
 from src import processor
 from src.features import (
@@ -8,9 +10,13 @@ from src.features import (
     build_feature_matrix,
     champion_matchup_stats,
     classify_winrate,
+    champion_archetype_matchups,
+    champion_pool,
+    core_champions,
     death_context,
     games_to_verdict,
-    opponent_archetype_winrates,
+    archetype_winrates,
+    pocket_picks,
     is_throw_game,
     roam_timing,
     tilt_index,
@@ -361,7 +367,7 @@ def test_opponent_archetype_winrates_holds_out_build_dependent() -> None:
             'Sylas', 150, 11000, 2, 3, 1
         )
     """, [S16_DATETIME_D])
-    frame = opponent_archetype_winrates(conn)
+    frame = archetype_winrates(conn, "opponent")
     conn.close()
 
     by_archetype = frame.set_index("archetype")
@@ -385,3 +391,72 @@ def test_projection_is_withheld_when_one_game_would_undo_it() -> None:
     assert _direction_survives_one_more_game(0.447, 114, baseline)
     # A rate sitting on the baseline has no direction to preserve.
     assert not _direction_survives_one_more_game(baseline, 50, baseline)
+
+
+def test_core_champions_is_derived_from_usage_not_a_game_count() -> None:
+    """The "rarely played" line comes from the player's own pool, not a constant."""
+    pool = pd.DataFrame(
+        {
+            "champion_name": ["Main", "Second", "Rare", "Rarer"],
+            "games": [60, 25, 10, 5],
+        }
+    )
+    # 100 games total; Main alone already covers 60%, so it is the whole core.
+    assert core_champions(pool, coverage=0.5) == {"Main"}
+    # Raising the bar pulls the next champion in rather than changing a threshold.
+    assert core_champions(pool, coverage=0.8) == {"Main", "Second"}
+    assert core_champions(pd.DataFrame(columns=["champion_name", "games"])) == set()
+
+
+def test_pocket_picks_never_recommends_a_single_game_outlier() -> None:
+    """A 1/1 champion is the exact case PRODUCT.md forbids promoting."""
+    conn = _make_conn()
+    # One extra champion, played once, won once: a 100% win rate on no evidence.
+    conn.execute("""
+        INSERT INTO matches VALUES (
+            'S16_ONEOFF', 'puuid1', ?, '16.1', 420,
+            1800, 1, 'Galio', 100, 'MIDDLE', 'MID', true,
+            5, 2, 3, 4.0, 180, 6.0, 12000, 20000, 30,
+            'Viktor', 150, 11000, 2, 3, 1
+        )
+    """, [S16_DATETIME_D])
+    picks = pocket_picks(conn)
+    conn.close()
+
+    galio = picks[picks["champion_name"] == "Galio"]
+    assert not galio.empty
+    assert galio.iloc[0]["label"] == "Insufficient Data"
+    assert "Potential Pocket Pick" not in set(picks["label"])
+
+
+def test_champion_pool_reports_per_minute_economy() -> None:
+    """The pool answers *how* a champion performs, not only whether it won."""
+    conn = _make_conn()
+    pool = champion_pool(conn)
+    conn.close()
+
+    zed = pool[pool["champion_name"] == "Zed"].iloc[0]
+    assert int(zed["games"]) == 3
+    assert int(zed["wins"]) + int(zed["losses"]) == int(zed["games"])
+    # 12000 gold over a 1800s game is 400 gold per minute.
+    assert zed["gold_per_min"] == pytest.approx(400.0)
+    assert zed["avg_duration_min"] == pytest.approx(30.0)
+    assert zed["archetype"] == "Assassins"
+
+
+def test_champion_archetype_matchups_drops_ineligible_opponents() -> None:
+    """Build-dependent opponents cannot carry a champion-into-archetype verdict."""
+    conn = _make_conn()
+    conn.execute("""
+        INSERT INTO matches VALUES (
+            'S16_FLEX', 'puuid1', ?, '16.1', 420,
+            1800, 1, 'Zed', 100, 'MIDDLE', 'MID', true,
+            5, 2, 3, 4.0, 180, 6.0, 12000, 20000, 30,
+            'Sylas', 150, 11000, 2, 3, 1
+        )
+    """, [S16_DATETIME_D])
+    frame = champion_archetype_matchups(conn)
+    conn.close()
+
+    assert "Build-dependent" not in set(frame["archetype"])
+    assert not frame.empty
