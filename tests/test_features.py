@@ -4,6 +4,7 @@ import duckdb
 
 from src import processor
 from src.features import (
+    _direction_survives_one_more_game,
     build_feature_matrix,
     champion_matchup_stats,
     classify_winrate,
@@ -370,3 +371,17 @@ def test_opponent_archetype_winrates_holds_out_build_dependent() -> None:
     assert int(by_archetype.loc["Build-dependent", "games"]) == 1
     # Sylas must not have been folded into a real archetype bucket.
     assert int(by_archetype.loc["Control Mages", "games"]) == 4
+
+
+def test_projection_is_withheld_when_one_game_would_undo_it() -> None:
+    """A games-needed projection reads as a promise; do not make one from noise."""
+    baseline = 0.513
+
+    # 1/1 at 100%: a single loss drops it to 50%, below baseline. Not projectable.
+    assert not _direction_survives_one_more_game(1.0, 1, baseline)
+    # 0/1 at 0%: one game is not a rate at all.
+    assert not _direction_survives_one_more_game(0.0, 1, baseline)
+    # 51/114 at 44.7%: one win moves it to 45.2%, still clearly below.
+    assert _direction_survives_one_more_game(0.447, 114, baseline)
+    # A rate sitting on the baseline has no direction to preserve.
+    assert not _direction_survives_one_more_game(baseline, 50, baseline)

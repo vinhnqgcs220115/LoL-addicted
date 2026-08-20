@@ -109,6 +109,25 @@ def games_to_verdict(
     return None
 
 
+def _direction_survives_one_more_game(
+    winrate: float, games: int, baseline: float
+) -> bool:
+    """Whether one more game of the opposite result would flip the direction.
+
+    A projection reads as a promise ("4 more games and you will know"), so it is
+    only worth stating when the direction it projects is not an artifact of a
+    single game. This is a stability test, not a minimum sample size: it invents
+    no cutoff, it just refuses to extrapolate from a rate that one result undoes.
+    """
+    if games < 2 or winrate == baseline:
+        return False
+    wins = round(winrate * games)
+    # Add one game of the result that would pull the rate back toward baseline.
+    opposite_wins = wins if winrate > baseline else wins + 1
+    shifted = opposite_wins / (games + 1)
+    return (shifted > baseline) == (winrate > baseline) and shifted != baseline
+
+
 def _add_winrate_interval(
     df: pd.DataFrame, rate_column: str, baseline: float
 ) -> pd.DataFrame:
@@ -123,8 +142,13 @@ def _add_winrate_interval(
         classify_winrate(low, high, baseline) for low, high in bounds
     ]
     df["games_needed"] = [
-        None if matchup_class != "Uncertain" else games_to_verdict(rate, baseline)
-        for matchup_class, rate in zip(df["matchup_class"], df[rate_column], strict=True)
+        None
+        if matchup_class != "Uncertain"
+        or not _direction_survives_one_more_game(rate, int(games), baseline)
+        else games_to_verdict(rate, baseline)
+        for matchup_class, rate, games in zip(
+            df["matchup_class"], df[rate_column], df["games"], strict=True
+        )
     ]
     return df
 
