@@ -1,0 +1,5231 @@
+{
+  "corpus": {
+    "audited": 825,
+    "detail_files": 825,
+    "detail_without_timeline": [],
+    "duplicate_match_ids": [],
+    "malformed": [],
+    "structurally_incomplete": [],
+    "timeline_files": 825,
+    "timeline_without_detail": [],
+    "valid_pairs": 825
+  },
+  "fields": {
+    "match_detail": {
+      "info.endOfGameResult": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.gameCreation": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.gameDuration": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.gameEndTimestamp": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.gameId": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.gameMode": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.gameName": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.gameStartTimestamp": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.gameType": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.gameVersion": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.mapId": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].PlayerBehavior.PlayerBehavior_IsHeroInCombat": {
+        "matches": 545,
+        "nulls": 0,
+        "occurrences": 5450,
+        "presence_rate": 0.660606,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].PlayerScore0": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].PlayerScore1": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].PlayerScore10": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].PlayerScore11": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].PlayerScore2": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].PlayerScore3": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].PlayerScore4": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].PlayerScore5": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].PlayerScore6": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].PlayerScore7": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].PlayerScore8": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].PlayerScore9": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].allInPings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].assistMePings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].assists": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].baronKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].basicPings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].causedGameEndFromIGNBSurrender": {
+        "matches": 426,
+        "nulls": 0,
+        "occurrences": 4260,
+        "presence_rate": 0.516364,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].challenges.12AssistStreakCount": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.HealFromMapSources": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "float",
+          "int"
+        ]
+      },
+      "info.participants[].challenges.InfernalScalePickup": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.SWARM_DefeatAatrox": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.SWARM_DefeatBriar": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.SWARM_DefeatMiniBosses": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.SWARM_EvolveWeapon": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.SWARM_Have3Passives": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.SWARM_KillEnemy": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.SWARM_PickupGold": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.SWARM_ReachLevel50": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.SWARM_Survive15Min": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.SWARM_WinWith5EvolvedWeapons": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.abilityUses": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.acesBefore15Minutes": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.alliedJungleMonsterKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.baronBuffGoldAdvantageOverThreshold": {
+        "matches": 386,
+        "nulls": 0,
+        "occurrences": 1980,
+        "presence_rate": 0.467879,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.baronTakedowns": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.blastConeOppositeOpponentCount": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.bountyGold": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "float",
+          "int"
+        ]
+      },
+      "info.participants[].challenges.buffsStolen": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.completeSupportQuestInTime": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.controlWardTimeCoverageInRiverOrEnemyHalf": {
+        "matches": 810,
+        "nulls": 0,
+        "occurrences": 4898,
+        "presence_rate": 0.981818,
+        "types": [
+          "float"
+        ]
+      },
+      "info.participants[].challenges.controlWardsPlaced": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.damagePerMinute": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "float",
+          "int"
+        ]
+      },
+      "info.participants[].challenges.damageTakenOnTeamPercentage": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "float",
+          "int"
+        ]
+      },
+      "info.participants[].challenges.dancedWithRiftHerald": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.deathsByEnemyChamps": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.dodgeSkillShotsSmallWindow": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.doubleAces": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.dragonTakedowns": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.earliestBaron": {
+        "matches": 638,
+        "nulls": 0,
+        "occurrences": 3700,
+        "presence_rate": 0.773333,
+        "types": [
+          "float"
+        ]
+      },
+      "info.participants[].challenges.earliestDragonTakedown": {
+        "matches": 810,
+        "nulls": 0,
+        "occurrences": 4487,
+        "presence_rate": 0.981818,
+        "types": [
+          "float"
+        ]
+      },
+      "info.participants[].challenges.earliestElderDragon": {
+        "matches": 55,
+        "nulls": 0,
+        "occurrences": 295,
+        "presence_rate": 0.066667,
+        "types": [
+          "float"
+        ]
+      },
+      "info.participants[].challenges.earlyLaningPhaseGoldExpAdvantage": {
+        "matches": 808,
+        "nulls": 0,
+        "occurrences": 8080,
+        "presence_rate": 0.979394,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.effectiveHealAndShielding": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "float",
+          "int"
+        ]
+      },
+      "info.participants[].challenges.elderDragonKillsWithOpposingSoul": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.elderDragonMultikills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.enemyChampionImmobilizations": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.enemyJungleMonsterKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.epicMonsterKillsNearEnemyJungler": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.epicMonsterKillsWithin30SecondsOfSpawn": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.epicMonsterSteals": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.epicMonsterStolenWithoutSmite": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.fasterSupportQuestCompletion": {
+        "matches": 394,
+        "nulls": 0,
+        "occurrences": 395,
+        "presence_rate": 0.477576,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.fastestLegendary": {
+        "matches": 442,
+        "nulls": 0,
+        "occurrences": 548,
+        "presence_rate": 0.535758,
+        "types": [
+          "float"
+        ]
+      },
+      "info.participants[].challenges.firstTurretKilled": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.firstTurretKilledTime": {
+        "matches": 807,
+        "nulls": 0,
+        "occurrences": 4035,
+        "presence_rate": 0.978182,
+        "types": [
+          "float"
+        ]
+      },
+      "info.participants[].challenges.fistBumpParticipation": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.flawlessAces": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.fullTeamTakedown": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.gameLength": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "float"
+        ]
+      },
+      "info.participants[].challenges.getTakedownsInAllLanesEarlyJungleAsLaner": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 6600,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.goldPerMinute": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "float"
+        ]
+      },
+      "info.participants[].challenges.hadAfkTeammate": {
+        "matches": 40,
+        "nulls": 0,
+        "occurrences": 159,
+        "presence_rate": 0.048485,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.hadOpenNexus": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.highestChampionDamage": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.highestCrowdControlScore": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.highestWardKills": {
+        "matches": 814,
+        "nulls": 0,
+        "occurrences": 962,
+        "presence_rate": 0.986667,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.immobilizeAndKillWithAlly": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.initialBuffCount": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.initialCrabCount": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.jungleCsBefore10Minutes": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "float",
+          "int"
+        ]
+      },
+      "info.participants[].challenges.junglerKillsEarlyJungle": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.junglerTakedownsNearDamagedEpicMonster": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.kTurretsDestroyedBeforePlatesFall": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.kda": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "float",
+          "int"
+        ]
+      },
+      "info.participants[].challenges.killAfterHiddenWithAlly": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.killParticipation": {
+        "matches": 820,
+        "nulls": 0,
+        "occurrences": 8175,
+        "presence_rate": 0.993939,
+        "types": [
+          "float",
+          "int"
+        ]
+      },
+      "info.participants[].challenges.killedChampTookFullTeamDamageSurvived": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.killingSprees": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.killsNearEnemyTurret": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.killsOnLanersEarlyJungleAsJungler": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.killsOnOtherLanesEarlyJungleAsLaner": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 6600,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.killsOnRecentlyHealedByAramPack": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.killsUnderOwnTurret": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.killsWithHelpFromEpicMonster": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.knockEnemyIntoTeamAndKill": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.landSkillShotsEarlyGame": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.laneMinionsFirst10Minutes": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.laningPhaseGoldExpAdvantage": {
+        "matches": 803,
+        "nulls": 0,
+        "occurrences": 8030,
+        "presence_rate": 0.973333,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.legendaryCount": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.legendaryItemUsed[]": {
+        "matches": 809,
+        "nulls": 0,
+        "occurrences": 30204,
+        "presence_rate": 0.980606,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.lostAnInhibitor": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.maxCsAdvantageOnLaneOpponent": {
+        "matches": 809,
+        "nulls": 0,
+        "occurrences": 8090,
+        "presence_rate": 0.980606,
+        "types": [
+          "float",
+          "int"
+        ]
+      },
+      "info.participants[].challenges.maxKillDeficit": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.maxLevelLeadLaneOpponent": {
+        "matches": 809,
+        "nulls": 0,
+        "occurrences": 8090,
+        "presence_rate": 0.980606,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.mejaisFullStackInTime": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.moreEnemyJungleThanOpponent": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "float",
+          "int"
+        ]
+      },
+      "info.participants[].challenges.multiKillOneSpell": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.multiTurretRiftHeraldCount": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.multikills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.multikillsAfterAggressiveFlash": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.outerTurretExecutesBefore10Minutes": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.outnumberedKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.outnumberedNexusKill": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.perfectDragonSoulsTaken": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.perfectGame": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.pickKillWithAlly": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.playedChampSelectPosition": {
+        "matches": 809,
+        "nulls": 0,
+        "occurrences": 8090,
+        "presence_rate": 0.980606,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.poroExplosions": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.quickCleanse": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.quickFirstTurret": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.quickSoloKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.riftHeraldTakedowns": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.saveAllyFromDeath": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.scuttleCrabKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.shortestTimeToAceFromFirstTakedown": {
+        "matches": 576,
+        "nulls": 0,
+        "occurrences": 2246,
+        "presence_rate": 0.698182,
+        "types": [
+          "float"
+        ]
+      },
+      "info.participants[].challenges.skillshotsDodged": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.skillshotsHit": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.snowballsHit": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.soloBaronKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.soloKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.soloTurretsLategame": {
+        "matches": 743,
+        "nulls": 0,
+        "occurrences": 1666,
+        "presence_rate": 0.900606,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.stealthWardsPlaced": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.survivedSingleDigitHpCount": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.survivedThreeImmobilizesInFight": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.takedownOnFirstTurret": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.takedowns": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.takedownsAfterGainingLevelAdvantage": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.takedownsBeforeJungleMinionSpawn": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.takedownsFirstXMinutes": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.takedownsInAlcove": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.takedownsInEnemyFountain": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.teamBaronKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.teamDamagePercentage": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "float",
+          "int"
+        ]
+      },
+      "info.participants[].challenges.teamElderDragonKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.teamRiftHeraldKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.teleportTakedowns": {
+        "matches": 459,
+        "nulls": 0,
+        "occurrences": 625,
+        "presence_rate": 0.556364,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.tookLargeDamageSurvived": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.turretPlatesTaken": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.turretTakedowns": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.turretsTakenWithRiftHerald": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.twentyMinionsIn3SecondsCount": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.twoWardsOneSweeperCount": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.unseenRecalls": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.visionScoreAdvantageLaneOpponent": {
+        "matches": 809,
+        "nulls": 0,
+        "occurrences": 8090,
+        "presence_rate": 0.980606,
+        "types": [
+          "float",
+          "int"
+        ]
+      },
+      "info.participants[].challenges.visionScorePerMinute": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "float",
+          "int"
+        ]
+      },
+      "info.participants[].challenges.voidMonsterKill": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.wardTakedowns": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.wardTakedownsBefore20M": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].challenges.wardsGuarded": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].champExperience": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].champLevel": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].championId": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].championName": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.participants[].championTransform": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].commandPings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].consumablesPurchased": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].damageDealtToBuildings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].damageDealtToEpicMonsters": {
+        "matches": 789,
+        "nulls": 0,
+        "occurrences": 7890,
+        "presence_rate": 0.956364,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].damageDealtToObjectives": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].damageDealtToTurrets": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].damageSelfMitigated": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].dangerPings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].deaths": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].detectorWardsPlaced": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].doubleKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].dragonKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].eligibleForProgression": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].enemyMissingPings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].enemyVisionPings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].firstBloodAssist": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].firstBloodKill": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].firstTowerAssist": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].firstTowerKill": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].gameEndedInEarlySurrender": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].gameEndedInIGNBSurrender": {
+        "matches": 465,
+        "nulls": 0,
+        "occurrences": 4650,
+        "presence_rate": 0.563636,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].gameEndedInSurrender": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].getBackPings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].goldEarned": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].goldSpent": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].holdPings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].individualPosition": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.participants[].inhibitorKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].inhibitorTakedowns": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].inhibitorsLost": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].item0": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].item1": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].item2": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].item3": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].item4": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].item5": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].item6": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].itemsPurchased": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].killingSprees": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].kills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].lane": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.participants[].largestCriticalStrike": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].largestKillingSpree": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].largestMultiKill": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].longestTimeSpentLiving": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].magicDamageDealt": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].magicDamageDealtToChampions": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].magicDamageTaken": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].missions.playerScore0": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].missions.playerScore1": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].missions.playerScore10": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].missions.playerScore11": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].missions.playerScore2": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].missions.playerScore3": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].missions.playerScore4": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].missions.playerScore5": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].missions.playerScore6": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].missions.playerScore7": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].missions.playerScore8": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].missions.playerScore9": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].needVisionPings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].neutralMinionsKilled": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].nexusKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].nexusLost": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].nexusTakedowns": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].objectivesStolen": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].objectivesStolenAssists": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].onMyWayPings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].participantId": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].pentaKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].perks.statPerks.defense": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].perks.statPerks.flex": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].perks.statPerks.offense": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].perks.styles[].description": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 16500,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.participants[].perks.styles[].selections[].perk": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 49500,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].perks.styles[].selections[].var1": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 49500,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].perks.styles[].selections[].var2": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 49500,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].perks.styles[].selections[].var3": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 49500,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].perks.styles[].style": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 16500,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].physicalDamageDealt": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].physicalDamageDealtToChampions": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].physicalDamageTaken": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].placement": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].playerAugment1": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].playerAugment2": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].playerAugment3": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].playerAugment4": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].playerAugment5": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].playerAugment6": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].playerSubteamId": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].positionAssignedByMatchmaking": {
+        "matches": 359,
+        "nulls": 0,
+        "occurrences": 3590,
+        "presence_rate": 0.435152,
+        "types": [
+          "str"
+        ]
+      },
+      "info.participants[].profileIcon": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].pushPings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].puuid": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.participants[].quadraKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].retreatPings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].riotIdGameName": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.participants[].riotIdTagline": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.participants[].role": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.participants[].roleBoundItem": {
+        "matches": 698,
+        "nulls": 0,
+        "occurrences": 6980,
+        "presence_rate": 0.846061,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].selectedRolePreferences": {
+        "matches": 359,
+        "nulls": 0,
+        "occurrences": 3590,
+        "presence_rate": 0.435152,
+        "types": [
+          "str"
+        ]
+      },
+      "info.participants[].sightWardsBoughtInGame": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].spell1Casts": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].spell2Casts": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].spell3Casts": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].spell4Casts": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].subteamPlacement": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].summoner1Casts": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].summoner1Id": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].summoner2Casts": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].summoner2Id": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].summonerId": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.participants[].summonerLevel": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].summonerName": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.participants[].teamEarlySurrendered": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].teamIGNBSurrendered": {
+        "matches": 465,
+        "nulls": 0,
+        "occurrences": 4650,
+        "presence_rate": 0.563636,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].teamId": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].teamPosition": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.participants[].timeCCingOthers": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].timePlayed": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].totalAllyJungleMinionsKilled": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].totalDamageDealt": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].totalDamageDealtToChampions": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].totalDamageShieldedOnTeammates": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].totalDamageTaken": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].totalEnemyJungleMinionsKilled": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].totalHeal": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].totalHealsOnTeammates": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].totalMinionsKilled": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].totalTimeCCDealt": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].totalTimeSpentDead": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].totalUnitsHealed": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].tripleKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].trueDamageDealt": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].trueDamageDealtToChampions": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].trueDamageTaken": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].turretKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].turretTakedowns": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].turretsLost": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].unrealKills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].visionClearedPings": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].visionScore": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].visionWardsBoughtInGame": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].wardsKilled": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].wardsPlaced": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.participants[].wasAfk": {
+        "matches": 167,
+        "nulls": 0,
+        "occurrences": 1670,
+        "presence_rate": 0.202424,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].wasPremadeWithIGNBGameEndCauser": {
+        "matches": 426,
+        "nulls": 0,
+        "occurrences": 4260,
+        "presence_rate": 0.516364,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].wasPremadeWithSevereTransgressor": {
+        "matches": 426,
+        "nulls": 0,
+        "occurrences": 4260,
+        "presence_rate": 0.516364,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].wasSevereTransgressor": {
+        "matches": 426,
+        "nulls": 0,
+        "occurrences": 4260,
+        "presence_rate": 0.516364,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.participants[].win": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.platformId": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "info.queueId": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].bans[].championId": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].bans[].pickTurn": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].feats.EPIC_MONSTER_KILL.featState": {
+        "matches": 317,
+        "nulls": 0,
+        "occurrences": 634,
+        "presence_rate": 0.384242,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].feats.FIRST_BLOOD.featState": {
+        "matches": 317,
+        "nulls": 0,
+        "occurrences": 634,
+        "presence_rate": 0.384242,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].feats.FIRST_TURRET.featState": {
+        "matches": 317,
+        "nulls": 0,
+        "occurrences": 634,
+        "presence_rate": 0.384242,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].objectives.atakhan.first": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.teams[].objectives.atakhan.kills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].objectives.baron.first": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.teams[].objectives.baron.kills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].objectives.champion.first": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.teams[].objectives.champion.kills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].objectives.dragon.first": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.teams[].objectives.dragon.kills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].objectives.horde.first": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.teams[].objectives.horde.kills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].objectives.inhibitor.first": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.teams[].objectives.inhibitor.kills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].objectives.riftHerald.first": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.teams[].objectives.riftHerald.kills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].objectives.tower.first": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.teams[].objectives.tower.kills": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].teamId": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "info.teams[].win": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 1650,
+        "presence_rate": 1.0,
+        "types": [
+          "bool"
+        ]
+      },
+      "info.tournamentCode": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "metadata.dataVersion": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "metadata.matchId": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 825,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      },
+      "metadata.participants[]": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 8250,
+        "presence_rate": 1.0,
+        "types": [
+          "str"
+        ]
+      }
+    },
+    "timeline_events": {
+      "BUILDING_KILL": {
+        "assistingParticipantIds[]": {
+          "matches": 788,
+          "nulls": 0,
+          "occurrences": 9923,
+          "presence_rate": 0.976456,
+          "types": [
+            "int"
+          ]
+        },
+        "bounty": {
+          "matches": 807,
+          "nulls": 0,
+          "occurrences": 11026,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "buildingType": {
+          "matches": 807,
+          "nulls": 0,
+          "occurrences": 11026,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "killerId": {
+          "matches": 807,
+          "nulls": 0,
+          "occurrences": 11026,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "laneType": {
+          "matches": 807,
+          "nulls": 0,
+          "occurrences": 11026,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "position.x": {
+          "matches": 807,
+          "nulls": 0,
+          "occurrences": 11026,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "position.y": {
+          "matches": 807,
+          "nulls": 0,
+          "occurrences": 11026,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "teamId": {
+          "matches": 807,
+          "nulls": 0,
+          "occurrences": 11026,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 807,
+          "nulls": 0,
+          "occurrences": 11026,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "towerType": {
+          "matches": 807,
+          "nulls": 0,
+          "occurrences": 9547,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "type": {
+          "matches": 807,
+          "nulls": 0,
+          "occurrences": 11026,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "CHAMPION_KILL": {
+        "assistingParticipantIds[]": {
+          "matches": 819,
+          "nulls": 0,
+          "occurrences": 76690,
+          "presence_rate": 0.99878,
+          "types": [
+            "int"
+          ]
+        },
+        "bounty": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 57690,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "killStreakLength": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 57690,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "killerId": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 57690,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "position.x": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 57690,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "position.y": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 57690,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "shutdownBounty": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 57690,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 57690,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 57690,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "victimDamageDealt[].basic": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 365844,
+          "presence_rate": 1.0,
+          "types": [
+            "bool"
+          ]
+        },
+        "victimDamageDealt[].magicDamage": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 365844,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "victimDamageDealt[].name": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 365844,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "victimDamageDealt[].participantId": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 365844,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "victimDamageDealt[].physicalDamage": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 365844,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "victimDamageDealt[].spellName": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 365844,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "victimDamageDealt[].spellSlot": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 365844,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "victimDamageDealt[].trueDamage": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 365844,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "victimDamageDealt[].type": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 365844,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "victimDamageReceived[].basic": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 682384,
+          "presence_rate": 1.0,
+          "types": [
+            "bool"
+          ]
+        },
+        "victimDamageReceived[].magicDamage": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 682384,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "victimDamageReceived[].name": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 682384,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "victimDamageReceived[].participantId": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 682384,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "victimDamageReceived[].physicalDamage": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 682384,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "victimDamageReceived[].spellName": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 682384,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "victimDamageReceived[].spellSlot": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 682384,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "victimDamageReceived[].trueDamage": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 682384,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "victimDamageReceived[].type": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 682384,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "victimId": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 57690,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "victimTeamfightDamageDealt[].basic": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 292508,
+          "presence_rate": 0.72561,
+          "types": [
+            "bool"
+          ]
+        },
+        "victimTeamfightDamageDealt[].magicDamage": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 292508,
+          "presence_rate": 0.72561,
+          "types": [
+            "int"
+          ]
+        },
+        "victimTeamfightDamageDealt[].name": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 292508,
+          "presence_rate": 0.72561,
+          "types": [
+            "str"
+          ]
+        },
+        "victimTeamfightDamageDealt[].participantId": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 292508,
+          "presence_rate": 0.72561,
+          "types": [
+            "int"
+          ]
+        },
+        "victimTeamfightDamageDealt[].physicalDamage": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 292508,
+          "presence_rate": 0.72561,
+          "types": [
+            "int"
+          ]
+        },
+        "victimTeamfightDamageDealt[].spellName": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 292508,
+          "presence_rate": 0.72561,
+          "types": [
+            "str"
+          ]
+        },
+        "victimTeamfightDamageDealt[].spellSlot": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 292508,
+          "presence_rate": 0.72561,
+          "types": [
+            "int"
+          ]
+        },
+        "victimTeamfightDamageDealt[].trueDamage": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 292508,
+          "presence_rate": 0.72561,
+          "types": [
+            "int"
+          ]
+        },
+        "victimTeamfightDamageDealt[].type": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 292508,
+          "presence_rate": 0.72561,
+          "types": [
+            "str"
+          ]
+        },
+        "victimTeamfightDamageReceived[].basic": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 521776,
+          "presence_rate": 0.72561,
+          "types": [
+            "bool"
+          ]
+        },
+        "victimTeamfightDamageReceived[].magicDamage": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 521776,
+          "presence_rate": 0.72561,
+          "types": [
+            "int"
+          ]
+        },
+        "victimTeamfightDamageReceived[].name": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 521776,
+          "presence_rate": 0.72561,
+          "types": [
+            "str"
+          ]
+        },
+        "victimTeamfightDamageReceived[].participantId": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 521776,
+          "presence_rate": 0.72561,
+          "types": [
+            "int"
+          ]
+        },
+        "victimTeamfightDamageReceived[].physicalDamage": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 521776,
+          "presence_rate": 0.72561,
+          "types": [
+            "int"
+          ]
+        },
+        "victimTeamfightDamageReceived[].spellName": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 521776,
+          "presence_rate": 0.72561,
+          "types": [
+            "str"
+          ]
+        },
+        "victimTeamfightDamageReceived[].spellSlot": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 521776,
+          "presence_rate": 0.72561,
+          "types": [
+            "int"
+          ]
+        },
+        "victimTeamfightDamageReceived[].trueDamage": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 521776,
+          "presence_rate": 0.72561,
+          "types": [
+            "int"
+          ]
+        },
+        "victimTeamfightDamageReceived[].type": {
+          "matches": 595,
+          "nulls": 0,
+          "occurrences": 521776,
+          "presence_rate": 0.72561,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "CHAMPION_SPECIAL_KILL": {
+        "killType": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 8294,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "killerId": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 8294,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "multiKillLength": {
+          "matches": 807,
+          "nulls": 0,
+          "occurrences": 6441,
+          "presence_rate": 0.984146,
+          "types": [
+            "int"
+          ]
+        },
+        "position.x": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 8294,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "position.y": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 8294,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 8294,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 8294,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "CHAMPION_TRANSFORM": {
+        "participantId": {
+          "matches": 36,
+          "nulls": 0,
+          "occurrences": 37,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 36,
+          "nulls": 0,
+          "occurrences": 37,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "transformType": {
+          "matches": 36,
+          "nulls": 0,
+          "occurrences": 37,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "type": {
+          "matches": 36,
+          "nulls": 0,
+          "occurrences": 37,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "DRAGON_SOUL_GIVEN": {
+        "name": {
+          "matches": 800,
+          "nulls": 0,
+          "occurrences": 1067,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "teamId": {
+          "matches": 800,
+          "nulls": 0,
+          "occurrences": 1067,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 800,
+          "nulls": 0,
+          "occurrences": 1067,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 800,
+          "nulls": 0,
+          "occurrences": 1067,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "ELITE_MONSTER_KILL": {
+        "assistingParticipantIds[]": {
+          "matches": 806,
+          "nulls": 0,
+          "occurrences": 11868,
+          "presence_rate": 0.993835,
+          "types": [
+            "int"
+          ]
+        },
+        "bounty": {
+          "matches": 811,
+          "nulls": 0,
+          "occurrences": 7569,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "killerId": {
+          "matches": 811,
+          "nulls": 0,
+          "occurrences": 7569,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "killerTeamId": {
+          "matches": 811,
+          "nulls": 0,
+          "occurrences": 7569,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "monsterSubType": {
+          "matches": 810,
+          "nulls": 0,
+          "occurrences": 3349,
+          "presence_rate": 0.998767,
+          "types": [
+            "str"
+          ]
+        },
+        "monsterType": {
+          "matches": 811,
+          "nulls": 0,
+          "occurrences": 7569,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "position.x": {
+          "matches": 811,
+          "nulls": 0,
+          "occurrences": 7569,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "position.y": {
+          "matches": 811,
+          "nulls": 0,
+          "occurrences": 7569,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 811,
+          "nulls": 0,
+          "occurrences": 7569,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 811,
+          "nulls": 0,
+          "occurrences": 7569,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "FEAT_UPDATE": {
+        "featType": {
+          "matches": 126,
+          "nulls": 0,
+          "occurrences": 1311,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "featValue": {
+          "matches": 126,
+          "nulls": 0,
+          "occurrences": 1311,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "teamId": {
+          "matches": 126,
+          "nulls": 0,
+          "occurrences": 1311,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 126,
+          "nulls": 0,
+          "occurrences": 1311,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 126,
+          "nulls": 0,
+          "occurrences": 1311,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "GAME_END": {
+        "gameId": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 825,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "realTimestamp": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 825,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 825,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 825,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "winningTeam": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 825,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        }
+      },
+      "ITEM_DESTROYED": {
+        "itemId": {
+          "matches": 821,
+          "nulls": 0,
+          "occurrences": 190840,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "participantId": {
+          "matches": 821,
+          "nulls": 0,
+          "occurrences": 190840,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 821,
+          "nulls": 0,
+          "occurrences": 190840,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 821,
+          "nulls": 0,
+          "occurrences": 190840,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "ITEM_PURCHASED": {
+        "itemId": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 203335,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "participantId": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 203335,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 203335,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 203335,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "ITEM_SOLD": {
+        "itemId": {
+          "matches": 803,
+          "nulls": 0,
+          "occurrences": 8706,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "participantId": {
+          "matches": 803,
+          "nulls": 0,
+          "occurrences": 8706,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 803,
+          "nulls": 0,
+          "occurrences": 8706,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 803,
+          "nulls": 0,
+          "occurrences": 8706,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "ITEM_UNDO": {
+        "afterId": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 10070,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "beforeId": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 10070,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "goldGain": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 10070,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "participantId": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 10070,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 10070,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 820,
+          "nulls": 0,
+          "occurrences": 10070,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "LEVEL_UP": {
+        "level": {
+          "matches": 822,
+          "nulls": 0,
+          "occurrences": 115269,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "participantId": {
+          "matches": 822,
+          "nulls": 0,
+          "occurrences": 115269,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 822,
+          "nulls": 0,
+          "occurrences": 115269,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 822,
+          "nulls": 0,
+          "occurrences": 115269,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "OBJECTIVE_BOUNTY_FINISH": {
+        "teamId": {
+          "matches": 280,
+          "nulls": 0,
+          "occurrences": 374,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 280,
+          "nulls": 0,
+          "occurrences": 374,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 280,
+          "nulls": 0,
+          "occurrences": 374,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "OBJECTIVE_BOUNTY_PRESTART": {
+        "actualStartTime": {
+          "matches": 636,
+          "nulls": 0,
+          "occurrences": 900,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "teamId": {
+          "matches": 636,
+          "nulls": 0,
+          "occurrences": 900,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 636,
+          "nulls": 0,
+          "occurrences": 900,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 636,
+          "nulls": 0,
+          "occurrences": 900,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "PAUSE_END": {
+        "realTimestamp": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 825,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 825,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 825,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "SKILL_LEVEL_UP": {
+        "levelUpType": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 125098,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "participantId": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 125098,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "skillSlot": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 125098,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 125098,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 125098,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "TURRET_PLATE_DESTROYED": {
+        "killerId": {
+          "matches": 812,
+          "nulls": 0,
+          "occurrences": 39991,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "laneType": {
+          "matches": 812,
+          "nulls": 0,
+          "occurrences": 39991,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "position.x": {
+          "matches": 812,
+          "nulls": 0,
+          "occurrences": 39991,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "position.y": {
+          "matches": 812,
+          "nulls": 0,
+          "occurrences": 39991,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "teamId": {
+          "matches": 812,
+          "nulls": 0,
+          "occurrences": 39991,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 812,
+          "nulls": 0,
+          "occurrences": 39991,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 812,
+          "nulls": 0,
+          "occurrences": 39991,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "WARD_KILL": {
+        "killerId": {
+          "matches": 814,
+          "nulls": 0,
+          "occurrences": 38367,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 814,
+          "nulls": 0,
+          "occurrences": 38367,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 814,
+          "nulls": 0,
+          "occurrences": 38367,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "wardType": {
+          "matches": 814,
+          "nulls": 0,
+          "occurrences": 38367,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      },
+      "WARD_PLACED": {
+        "creatorId": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 167420,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "timestamp": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 167420,
+          "presence_rate": 1.0,
+          "types": [
+            "int"
+          ]
+        },
+        "type": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 167420,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        },
+        "wardType": {
+          "matches": 825,
+          "nulls": 0,
+          "occurrences": 167420,
+          "presence_rate": 1.0,
+          "types": [
+            "str"
+          ]
+        }
+      }
+    },
+    "timeline_participant_frames": {
+      "championStats.abilityHaste": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.abilityPower": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.armor": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.armorPen": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.armorPenPercent": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.attackDamage": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.attackSpeed": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.bonusArmorPenPercent": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.bonusMagicPenPercent": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.ccReduction": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.cooldownReduction": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.health": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.healthMax": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.healthRegen": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.lifesteal": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.magicPen": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.magicPenPercent": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.magicResist": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.movementSpeed": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.omnivamp": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.physicalVamp": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.power": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.powerMax": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.powerRegen": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "championStats.spellVamp": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "currentGold": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "damageStats.magicDamageDone": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "damageStats.magicDamageDoneToChampions": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "damageStats.magicDamageTaken": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "damageStats.physicalDamageDone": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "damageStats.physicalDamageDoneToChampions": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "damageStats.physicalDamageTaken": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "damageStats.totalDamageDone": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "damageStats.totalDamageDoneToChampions": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "damageStats.totalDamageTaken": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "damageStats.trueDamageDone": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "damageStats.trueDamageDoneToChampions": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "damageStats.trueDamageTaken": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "goldPerSecond": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "jungleMinionsKilled": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "level": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "minionsKilled": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "participantId": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "position.x": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "position.y": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "timeEnemySpentControlled": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "totalGold": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      },
+      "xp": {
+        "matches": 825,
+        "nulls": 0,
+        "occurrences": 250780,
+        "presence_rate": 1.0,
+        "types": [
+          "int"
+        ]
+      }
+    }
+  },
+  "measures": {
+    "blank_position_matches": [
+      {
+        "frames": 4,
+        "match": "VN2_1382264559",
+        "patch": "16.9"
+      }
+    ],
+    "champion_kills": 57690,
+    "dealt_missing_by_patch": {
+      "15.18": 31,
+      "15.19": 91,
+      "15.20": 38,
+      "15.21": 5,
+      "15.22": 11,
+      "15.23": 72,
+      "15.24": 226,
+      "16.1": 264,
+      "16.10": 369,
+      "16.11": 223,
+      "16.12": 77,
+      "16.13": 397,
+      "16.14": 198,
+      "16.15": 228,
+      "16.16": 506,
+      "16.17": 405,
+      "16.2": 101,
+      "16.3": 286,
+      "16.4": 24,
+      "16.5": 33,
+      "16.6": 125,
+      "16.7": 115,
+      "16.8": 117,
+      "16.9": 238
+    },
+    "dealt_missing_champion": 4095,
+    "dealt_missing_execution": 85,
+    "frame_intervals": {
+      "60000": 825
+    },
+    "kills_by_patch": {
+      "15.18": 709,
+      "15.19": 1418,
+      "15.20": 505,
+      "15.21": 232,
+      "15.22": 235,
+      "15.23": 1427,
+      "15.24": 4354,
+      "16.1": 5294,
+      "16.10": 4697,
+      "16.11": 2509,
+      "16.12": 997,
+      "16.13": 4655,
+      "16.14": 2542,
+      "16.15": 2697,
+      "16.16": 6188,
+      "16.17": 5188,
+      "16.2": 2035,
+      "16.3": 3519,
+      "16.4": 347,
+      "16.5": 419,
+      "16.6": 1792,
+      "16.7": 1575,
+      "16.8": 1480,
+      "16.9": 2876
+    },
+    "participant_counts": {
+      "10": 825
+    },
+    "patches": {
+      "15.18": 9,
+      "15.19": 20,
+      "15.20": 7,
+      "15.21": 3,
+      "15.22": 3,
+      "15.23": 21,
+      "15.24": 64,
+      "16.1": 69,
+      "16.10": 67,
+      "16.11": 34,
+      "16.12": 16,
+      "16.13": 67,
+      "16.14": 37,
+      "16.15": 38,
+      "16.16": 88,
+      "16.17": 79,
+      "16.2": 30,
+      "16.3": 54,
+      "16.4": 5,
+      "16.5": 6,
+      "16.6": 26,
+      "16.7": 22,
+      "16.8": 21,
+      "16.9": 39
+    },
+    "queues": {
+      "420": 825
+    },
+    "short_matches": [
+      {
+        "duration_sec": 176,
+        "frames": 4,
+        "match": "VN2_1144550518",
+        "patch": "15.23",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 125,
+        "frames": 4,
+        "match": "VN2_1188613875",
+        "patch": "15.24",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 104,
+        "frames": 3,
+        "match": "VN2_1260896690",
+        "patch": "16.3",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 77,
+        "frames": 3,
+        "match": "VN2_1263268632",
+        "patch": "16.3",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 438,
+        "frames": 9,
+        "match": "VN2_1317614741",
+        "patch": "16.6",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 72,
+        "frames": 3,
+        "match": "VN2_1333869686",
+        "patch": "16.7",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 92,
+        "frames": 3,
+        "match": "VN2_1347555220",
+        "patch": "16.8",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 123,
+        "frames": 4,
+        "match": "VN2_1382264559",
+        "patch": "16.9",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 85,
+        "frames": 3,
+        "match": "VN2_1395318391",
+        "patch": "16.10",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 81,
+        "frames": 3,
+        "match": "VN2_1395411511",
+        "patch": "16.10",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 68,
+        "frames": 3,
+        "match": "VN2_1485002902",
+        "patch": "16.13",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 79,
+        "frames": 3,
+        "match": "VN2_1496058015",
+        "patch": "16.13",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 387,
+        "frames": 8,
+        "match": "VN2_1503217698",
+        "patch": "16.14",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 426,
+        "frames": 9,
+        "match": "VN2_1554839806",
+        "patch": "16.16",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 128,
+        "frames": 4,
+        "match": "VN2_1574339498",
+        "patch": "16.17",
+        "result": "GameComplete"
+      },
+      {
+        "duration_sec": 75,
+        "frames": 3,
+        "match": "VN2_1574644462",
+        "patch": "16.17",
+        "result": "GameComplete"
+      }
+    ],
+    "team_position": {
+      "<blank>": 2,
+      "BOTTOM": 1650,
+      "JUNGLE": 1649,
+      "MIDDLE": 1650,
+      "TOP": 1650,
+      "UTILITY": 1649
+    },
+    "victimDamageDealt_missing": 4180,
+    "victimDamageDealt_present": 53510,
+    "victimDamageReceived_missing": 0,
+    "victimDamageReceived_present": 57690
+  }
+}

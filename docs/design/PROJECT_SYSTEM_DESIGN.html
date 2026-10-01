@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LoL Mid-Lane Analytics — System Design</title>
+<style>
+:root{
+  --bg:#fbfaf8; --panel:#ffffff; --ink:#1a1a1c; --ink-2:#4a4a52; --ink-3:#77777f;
+  --line:#e4e2dd; --line-2:#d0cdc6;
+  --accent:#2f5d50; --accent-soft:#e8f0ed;
+  --build:#2f6b4f; --build-bg:#e7f2ec;
+  --partial:#8a6320; --partial-bg:#f9f0dd;
+  --manual:#5a4b8a; --manual-bg:#eeeaf7;
+  --none:#8a3b3b; --none-bg:#f8e9e9;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6}
+.wrap{display:grid;grid-template-columns:252px minmax(0,1fr);max-width:1500px;margin:0 auto}
+nav{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:26px 18px;border-right:1px solid var(--line);background:var(--bg)}
+nav h1{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin:0 0 4px}
+nav .sub{font-size:12px;color:var(--ink-3);margin-bottom:18px;line-height:1.4}
+nav a{display:block;padding:5px 9px;margin:1px 0;color:var(--ink-2);text-decoration:none;font-size:13px;border-radius:5px;border-left:2px solid transparent}
+nav a:hover{background:var(--accent-soft);color:var(--accent);border-left-color:var(--accent)}
+nav .grp{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);margin:15px 0 4px 9px;font-weight:600}
+main{padding:34px 44px 120px;min-width:0}
+section{margin-bottom:52px;scroll-margin-top:22px}
+h2{font-size:24px;margin:0 0 6px;letter-spacing:-.015em}
+h2 .n{color:var(--ink-3);font-family:var(--mono);font-size:15px;margin-right:9px;font-weight:400}
+h3{font-size:16px;margin:26px 0 8px;letter-spacing:-.01em}
+h4{font-size:13.5px;margin:18px 0 6px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.05em}
+p{margin:9px 0}
+.lede{font-size:16px;color:var(--ink-2);border-left:3px solid var(--accent);padding-left:15px;margin:12px 0 22px}
+code{font-family:var(--mono);font-size:.88em;background:#f1efea;padding:1px 5px;border-radius:3px}
+pre{font-family:var(--mono);font-size:12.5px;background:#f7f5f1;border:1px solid var(--line);border-radius:7px;padding:14px 16px;overflow-x:auto;line-height:1.55}
+table{width:100%;border-collapse:collapse;margin:13px 0;font-size:13.5px}
+th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--line-2);font-size:11.5px;text-transform:uppercase;letter-spacing:.055em;color:var(--ink-3);font-weight:600;vertical-align:bottom}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:17px 19px;margin:13px 0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:13px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:13px}
+.tag{display:inline-block;font-family:var(--mono);font-size:10.5px;padding:2px 7px;border-radius:4px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.t-build{background:var(--build-bg);color:var(--build)}
+.t-partial{background:var(--partial-bg);color:var(--partial)}
+.t-manual{background:var(--manual-bg);color:var(--manual)}
+.t-none{background:var(--none-bg);color:var(--none)}
+.t-dec{background:#e7f2ec;color:#2f6b4f}
+.t-prop{background:#e9eef7;color:#33518a}
+.t-def{background:#f1efea;color:var(--ink-2)}
+.t-unk{background:#f8e9e9;color:var(--none)}
+.callout{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 7px 7px 0;margin:14px 0}
+.warn{border-left:3px solid var(--none);background:var(--none-bg);padding:12px 16px;border-radius:0 7px 7px 0;margin:14px 0}
+details{border:1px solid var(--line);border-radius:7px;padding:10px 14px;margin:9px 0;background:var(--panel)}
+summary{cursor:pointer;font-weight:600;font-size:13.5px;color:var(--accent)}
+details[open] summary{margin-bottom:9px;border-bottom:1px solid var(--line);padding-bottom:7px}
+svg{display:block;max-width:100%;height:auto;margin:16px 0}
+.wire{border:1px solid var(--line-2);border-radius:8px;overflow:hidden;background:var(--panel);margin:14px 0;font-size:12.5px}
+.wire .bar{background:#f2f0ec;padding:7px 13px;font-family:var(--mono);font-size:11px;color:var(--ink-3);border-bottom:1px solid var(--line);letter-spacing:.04em}
+.wire .body{padding:13px}
+.wr{border:1px dashed var(--line-2);border-radius:6px;padding:9px 12px;margin:7px 0;background:#fdfcfa}
+.wr b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.055em;color:var(--ink-3);margin-bottom:3px;font-weight:600}
+.muted{color:var(--ink-3);font-size:13px}
+ul,ol{margin:9px 0;padding-left:21px}
+li{margin:4px 0}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:5px 13px;font-size:13.5px;margin:9px 0}
+.kv dt{color:var(--ink-3);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
+.kv dd{margin:0}
+hr{border:none;border-top:1px solid var(--line);margin:30px 0}
+.pill{display:inline-block;background:#f1efea;border-radius:11px;padding:1px 10px;font-size:12px;color:var(--ink-2);margin:2px 3px 2px 0}
+@media print{nav{display:none}.wrap{grid-template-columns:1fr}main{padding:0}details{break-inside:avoid}details summary{display:none}details>*{display:block!important}}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}nav{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line)}main{padding:22px 18px 70px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <h1>System Design</h1>
+  <div class="sub">LoL Mid-Lane Analytics<br>v1 blueprint · 2026-09-15</div>
+  <div class="grp">Product</div>
+  <a href="#summary">1 · Executive summary</a>
+  <a href="#vision">2 · Product vision</a>
+  <a href="#workflows">3 · User workflows</a>
+  <a href="#pergame">4 · Per-game contract</a>
+  <a href="#season">5 · Per-season contract</a>
+  <div class="grp">Analysis</div>
+  <a href="#decision">6 · Decision model</a>
+  <a href="#evidence">7 · Evidence &amp; uncertainty</a>
+  <a href="#catalogue">8 · Catalogue disposition</a>
+  <a href="#replay">9 · Replay &amp; annotation</a>
+  <div class="grp">Interface</div>
+  <a href="#audit">10 · Dashboard diagnosis</a>
+  <a href="#ia">11 · Information architecture</a>
+  <a href="#wireframes">12 · Wireframes</a>
+  <a href="#viz">13 · Visualization strategy</a>
+  <div class="grp">System</div>
+  <a href="#dataarch">14 · Data architecture</a>
+  <a href="#db">15 · Database design</a>
+  <a href="#flow">16 · End-to-end flow</a>
+  <a href="#components">17 · Components</a>
+  <a href="#versioning">18 · Provenance &amp; versioning</a>
+  <a href="#privacy">19 · Privacy boundary</a>
+  <div class="grp">Execution</div>
+  <a href="#risks">20 · Technical risks</a>
+  <a href="#testing">21 · Testing strategy</a>
+  <a href="#scope">22 · Finalize vs defer</a>
+  <a href="#roadmap">23 · Roadmap</a>
+  <a href="#done">24 · Definition of done</a>
+  <a href="#open">25 · Open questions</a>
+</nav>
+<main>
+
+<section id="summary">
+<h2><span class="n">01</span>Executive summary</h2>
+<p class="lede">The product is a <strong>per-game decision reconstruction</strong>. The season layer is a pattern index over the same facts — not a separate statistics system. Everything currently shipped is the season layer, which is why it cannot answer the question the user actually has.</p>
+
+<div class="grid3">
+<div class="card"><h4>The core unit</h4><p>Not a metric. A <strong>Decision Record</strong>: context, options, observed choice, consequence, evidence, and <em>named missing inputs</em>. Every user-facing claim resolves to one.</p></div>
+<div class="card"><h4>The honesty rule</h4><p>A judgement needing an unobservable input never becomes a verdict. It becomes a <strong>review target</strong> with a timestamp range. This is a feature, not a limitation.</p></div>
+<div class="card"><h4>The drill path</h4><p><code>season pattern → affected games → game → timeline → decision → evidence</code>. One continuous flow, first-class, not five disconnected pages.</p></div>
+</div>
+
+<h3>Decisions taken in this document</h3>
+<table>
+<tr><th style="width:230px">Decision</th><th>Status</th><th>Rationale</th></tr>
+<tr><td>Per-game is the primary product; season is derived from it</td><td><span class="tag t-dec">DECIDED</span></td><td>A season aggregate structurally cannot answer "what happened in my game". Shared canonical facts prevent the two views from ever disagreeing.</td></tr>
+<tr><td>Retire K-Means clustering</td><td><span class="tag t-dec">DECIDED</span></td><td>Classified <strong>deprecated</strong> — see §8. Prior investigation showed clusters recover game outcome, not behaviour, across three feature sets and eight <em>k</em> values.</td></tr>
+<tr><td>Participant-long canonical schema</td><td><span class="tag t-dec">DECIDED</span></td><td>Current <code>opp_*</code> two-player shape cannot express enemy jungler, support, or ally positions. External pressure is unbuildable without it.</td></tr>
+<tr><td>Four availability states + three missing-input classes</td><td><span class="tag t-prop">PROPOSED</span></td><td>Splits <code>NOT OBSERVABLE</code> into telemetry / information-state / domain-rule. Six catalogue entries turn out to need <em>no new data at all</em>.</td></tr>
+<tr><td>Keep Streamlit</td><td><span class="tag t-dec">DECIDED</span></td><td>The failure is information architecture, not framework. A rewrite would relocate the problem.</td></tr>
+<tr><td>Live Client Data pipeline</td><td><span class="tag t-def">DEFERRED</span></td><td>Research established it upgrades zero entries and is positionally weaker than Match-V5.</td></tr>
+</table>
+
+<p class="muted"><strong>Companion documents.</strong> <code>FINALIZATION_DECISIONS.md</code> records what is locked versus waiting on the player. <code>CATALOGUE_REVIEW.md</code> is the per-entry review sheet. <code>ANALYSIS_SPEC_FINALIZATION.md</code> is the proposed spec delta. <code>docs/ANALYSIS_SPEC.md</code> stays operative until a delta is accepted.</p>
+<div class="warn"><strong>Two implementation facts found during inspection.</strong>
+<ul style="margin-bottom:0">
+<li><code>data/lol.duckdb</code> holds <strong>704 matches against 825 raw pairs</strong> — 121 games stale, and still on the two-participant schema. The canonical rebuild has not run.</li>
+<li><code>assets/map/summoners_rift.png</code> is fetched, <strong>and <code>src/mapping.py</code> already implements minimap projection with tests</strong> — yet no view renders either. Position data sits unused in the DB while the utility to draw it is written and passing.</li>
+</ul></div>
+</section>
+
+<section id="vision">
+<h2><span class="n">02</span>Product vision</h2>
+<p class="lede">"Given one of my games: what happened, what did I choose, and what should I have weighed differently?"</p>
+
+<p>The competing product is not OP.GG. It is <strong>the replay</strong>. For a single game a strong player can scrub to 14:00 and read CS and gold faster than any dashboard. Restating what they already knew mid-game has no value.</p>
+
+<h3>What the tool does that the replay cannot</h3>
+<div class="grid2">
+<div class="card"><h4>Search at scale</h4><p>825 games × ~29 minutes is roughly 16,000 minutes of footage. The tool finds the twenty minutes worth watching. No human reviews that corpus.</p></div>
+<div class="card"><h4>Remove fog, computed</h4><p>Enemy jungler position at every decision point. The replay contains it too, but only if you manually track it. The tool states it automatically at every death.</p></div>
+<div class="card"><h4>Eliminate hypotheses</h4><p>"You lost lane, <em>and it was not jungle pressure</em>" is worth more than "you lost lane". Narrowing the explanation is the product.</p></div>
+<div class="card"><h4>Detect repetition</h4><p>One bad minute is noise. The same shape across forty games is a pattern, and no one holds forty games in their head.</p></div>
+<div class="card"><h4>Measure change</h4><p>After changing something you cannot <em>feel</em> whether it worked — thirty games of variance swamps it. The tool measures it.</p></div>
+<div class="card"><h4>Ask every question, every game</h4><p>The same fifteen decision checks run on every game. A human asks whichever ones they happen to think of that day.</p></div>
+</div>
+
+<div class="callout"><strong>The division of labour.</strong> The tool <em>searches, locates, and supplies facts</em>. The player <em>diagnoses mechanics</em>. This is not a workaround for weak data — even with perfect telemetry the machine should do the searching and the human should watch the moment.</div>
+
+<h3>Non-goals</h3>
+<p><span class="pill">Live or in-game features</span><span class="pill">Win probability prediction</span><span class="pill">Generic stat tracking</span><span class="pill">Multi-user or public profiles</span><span class="pill">An LLM layer over unreliable analytics</span><span class="pill">All-role analytics</span></p>
+</section>
+
+<section id="workflows">
+<h2><span class="n">03</span>User workflows</h2>
+<p>Two modes. Every navigation decision serves one of them.</p>
+
+<svg viewBox="0 0 900 250" role="img" aria-label="Exploration and investigation workflows converging on evidence">
+<defs><marker id="a1" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#77777f"/></marker></defs>
+<text x="12" y="20" font-size="11" font-family="monospace" fill="#77777f" letter-spacing="1">EXPLORATION — "what is going on with my play?"</text>
+<rect x="12" y="32" width="150" height="46" rx="7" fill="#e8f0ed" stroke="#2f5d50"/><text x="87" y="53" text-anchor="middle" font-size="12.5" font-weight="600">Overview</text><text x="87" y="68" text-anchor="middle" font-size="10.5" fill="#4a4a52">current form</text>
+<line x1="166" y1="55" x2="200" y2="55" stroke="#77777f" marker-end="url(#a1)"/>
+<rect x="204" y="32" width="150" height="46" rx="7" fill="#e8f0ed" stroke="#2f5d50"/><text x="279" y="53" text-anchor="middle" font-size="12.5" font-weight="600">Patterns</text><text x="279" y="68" text-anchor="middle" font-size="10.5" fill="#4a4a52">what recurs</text>
+<line x1="358" y1="55" x2="392" y2="55" stroke="#77777f" marker-end="url(#a1)"/>
+<rect x="396" y="32" width="150" height="46" rx="7" fill="#e8f0ed" stroke="#2f5d50"/><text x="471" y="53" text-anchor="middle" font-size="12.5" font-weight="600">Affected games</text><text x="471" y="68" text-anchor="middle" font-size="10.5" fill="#4a4a52">the evidence set</text>
+
+<text x="12" y="118" font-size="11" font-family="monospace" fill="#77777f" letter-spacing="1">INVESTIGATION — "why did this game go badly?"</text>
+<rect x="12" y="130" width="150" height="46" rx="7" fill="#f9f0dd" stroke="#8a6320"/><text x="87" y="151" text-anchor="middle" font-size="12.5" font-weight="600">Game review</text><text x="87" y="166" text-anchor="middle" font-size="10.5" fill="#4a4a52">reconstruction</text>
+<line x1="166" y1="153" x2="200" y2="153" stroke="#77777f" marker-end="url(#a1)"/>
+<rect x="204" y="130" width="150" height="46" rx="7" fill="#f9f0dd" stroke="#8a6320"/><text x="279" y="151" text-anchor="middle" font-size="12.5" font-weight="600">Timeline</text><text x="279" y="166" text-anchor="middle" font-size="10.5" fill="#4a4a52">when it happened</text>
+<line x1="358" y1="153" x2="392" y2="153" stroke="#77777f" marker-end="url(#a1)"/>
+<rect x="396" y="130" width="150" height="46" rx="7" fill="#f9f0dd" stroke="#8a6320"/><text x="471" y="151" text-anchor="middle" font-size="12.5" font-weight="600">Decision</text><text x="471" y="166" text-anchor="middle" font-size="10.5" fill="#4a4a52">the choice made</text>
+
+<line x1="550" y1="55" x2="620" y2="95" stroke="#77777f" marker-end="url(#a1)"/>
+<line x1="550" y1="153" x2="620" y2="112" stroke="#77777f" marker-end="url(#a1)"/>
+<rect x="626" y="80" width="160" height="48" rx="7" fill="#fff" stroke="#1a1a1c" stroke-width="1.6"/><text x="706" y="100" text-anchor="middle" font-size="12.5" font-weight="700">Evidence panel</text><text x="706" y="116" text-anchor="middle" font-size="10.5" fill="#4a4a52">facts + missing inputs</text>
+<line x1="706" y1="132" x2="706" y2="172" stroke="#77777f" marker-end="url(#a1)"/>
+<rect x="626" y="176" width="160" height="42" rx="7" fill="#eeeaf7" stroke="#5a4b8a"/><text x="706" y="196" text-anchor="middle" font-size="12.5" font-weight="600">Review target</text><text x="706" y="211" text-anchor="middle" font-size="10.5" fill="#4a4a52">when data runs out</text>
+<text x="800" y="104" font-size="10.5" fill="#77777f">both paths</text><text x="800" y="118" font-size="10.5" fill="#77777f">end here</text>
+</svg>
+
+<p><strong>The evidence panel is the convergence point of the entire product.</strong> Both workflows terminate in "why does the system believe this, and what does it not know". Everything else is navigation.</p>
+</section>
+
+<section id="pergame">
+<h2><span class="n">04</span>Per-game final contract</h2>
+<p class="lede">Ordered by what the player needs first. Statistics are context, never the headline.</p>
+
+<table>
+<tr><th style="width:42px">#</th><th style="width:180px">Block</th><th>Question it answers</th><th style="width:130px">Form</th></tr>
+<tr><td>1</td><td><strong>Verdict header</strong></td><td>What kind of game was this, in one line? Result, lane outcome, the single most consequential decision.</td><td>Text + 3 chips</td></tr>
+<tr><td>2</td><td><strong>Lane phase 0–14</strong></td><td>Where was the lane won or lost, against the actual opponent?</td><td>Diff curves</td></tr>
+<tr><td>3</td><td><strong>Decision timeline</strong></td><td>When did the choices that mattered occur?</td><td>Horizontal timeline</td></tr>
+<tr><td>4</td><td><strong>Key decisions</strong></td><td>What were the 3–6 moments worth understanding?</td><td>Expandable cards</td></tr>
+<tr><td>5</td><td><strong>Map evidence</strong></td><td>Where was I, and where was everyone else, when it happened?</td><td>Minimap overlay</td></tr>
+<tr><td>6</td><td><strong>Review queue</strong></td><td>What does the system explicitly not know about this game?</td><td>Timestamp list</td></tr>
+<tr><td>7</td><td><strong>Reference stats</strong></td><td>The conventional numbers, collapsed by default.</td><td>Table, <code>&lt;details&gt;</code></td></tr>
+</table>
+
+<div class="callout"><strong>Above the fold: blocks 1 and 2 only.</strong> If the player reads nothing else they should know whether the lane was lost, roughly when, and what to look at. Block 7 exists because the numbers must be available — not because they are insight.</div>
+
+<h3>Lane phase — what survives and what does not</h3>
+<div class="grid2">
+<div class="card"><h4>Keep</h4>
+<p>CS diff, gold diff, XP diff and level diff versus the <strong>actual lane opponent</strong>, per minute. Level-up timings from <code>LEVEL_UP</code>. Item completion from <code>ITEM_PURCHASED</code>. Per-minute champion-damage exchange. Deaths with full damage attribution.</p>
+<p class="muted">All measured at 100% presence, corpus-wide.</p></div>
+<div class="card"><h4>Cut as clutter</h4>
+<p>Raw CS without a comparison. CS/min shown alone. Vision score. Damage share. Anything self-referential — comparing the player to their own season average rather than to the opponent in front of them.</p>
+<p class="muted">A number with no counterparty answers no question.</p></div>
+</div>
+
+<div class="warn"><strong>Wave state must never be implied.</strong> CS rate, gold rate and tower-relative position are <em>lane activity proxies</em>. A 14-CS minute may be a stacked crash, two waves under tower, or a jungle camp — the proxy cannot separate them. Where a lane-activity proxy is shown it is labelled as one.</div>
+</section>
+
+<section id="season">
+<h2><span class="n">05</span>Per-season final contract</h2>
+<p class="lede">"What kind of mid-laner am I, and what should I work on?" — not "what are my averages?"</p>
+
+<p>Season analysis is an <strong>index over per-game decision records</strong>. It aggregates the same facts the game view shows, so the two can never disagree. It is built after the per-game engine, not beside it.</p>
+
+<table>
+<tr><th style="width:180px">Block</th><th>Question</th><th>Design constraint</th></tr>
+<tr><td><strong>Current form</strong></td><td>How am I doing right now?</td><td>Recent window plus trend direction. Not a lifetime average.</td></tr>
+<tr><td><strong>Recurring patterns</strong></td><td>What keeps happening?</td><td>Requires repeated evidence. One unusual game is never a pattern. Links to the affected game list.</td></tr>
+<tr><td><strong>Champion pool</strong></td><td>What actually works for me?</td><td>Never a raw win-rate sort — see methodology below.</td></tr>
+<tr><td><strong>Matchups</strong></td><td>Which lanes are genuinely hard?</td><td>Verdict only where the sample supports it; direction with explicit uncertainty otherwise.</td></tr>
+<tr><td><strong>Improvement</strong></td><td>Is anything changing?</td><td>A small fixed set of trends, each tied to a named pattern.</td></tr>
+</table>
+
+<h3>Champion evaluation methodology <span class="tag t-prop">PROPOSED</span></h3>
+<p>Ranking is a two-gate process, not a score.</p>
+<ol>
+<li><strong>Eligibility gate.</strong> A champion is rankable only if an exact one-sided binomial test against the player's own baseline can distinguish its record from that baseline. Below that it is reported as <em>Uncertain</em> with its game count, never ranked.</li>
+<li><strong>Ordering among eligible champions</strong> uses win rate against baseline, with lane differential at minute 14 shown alongside as corroboration.</li>
+</ol>
+<p>This preserves the existing rule that <code>2 games, 100%</code> never outranks <code>40 games, 62%</code> — the two-game champion is not <em>ranked lower</em>, it is <strong>not ranked at all</strong>.</p>
+
+<div class="warn"><strong>Multiple-comparison correction is required and currently absent.</strong> Testing 39 champions at <em>p</em> &lt; 0.05 produces roughly two false verdicts by chance. On the present data the only champion clearing the uncorrected threshold is Zoe (124 games, 58.9%, <em>p</em> = 0.032), which does <strong>not</strong> survive a Bonferroni correction. Either apply a correction or label uncorrected results as leads. <span class="tag t-unk">REQUIRES DOMAIN REVIEW</span></div>
+</section>
+
+<section id="decision">
+<h2><span class="n">06</span>Decision analysis model</h2>
+<p class="lede">One record shape for every decision, buildable or not. The shape is what makes uncertainty expressible.</p>
+
+<pre>DecisionRecord
+  decision_id          stable identifier
+  match_id, t_start_ms, t_end_ms
+  catalogue_entry      FK to the decision catalogue
+  category             lane | movement | combat | objective | information | resource
+  context              observable state at t_start
+  options              plausible alternatives (domain-defined)
+  observed_choice      what the player did
+  consequence          observable outcome
+  cost                 what was given up
+  evaluation           good | bad | tradeoff | <b>not_justified</b>
+  confidence           high | medium | low
+  availability         BUILDABLE | PARTIAL | REPLAY_MANUAL_ONLY | NOT_OBSERVABLE
+  missing_inputs[]     telemetry | information_state | domain_rule
+  evidence[]           facts with provenance, each traceable to a canonical row
+  rule_version         which analysis rule produced this</pre>
+
+<h3>The availability model</h3>
+<div class="grid2">
+<div class="card"><span class="tag t-build">BUILDABLE</span><p style="margin-top:8px">Historical Match-V5 supports detection <em>and</em> evaluation. Ships as an automatic verdict.</p></div>
+<div class="card"><span class="tag t-partial">PARTIAL</span><p style="margin-top:8px">Action detectable; a load-bearing judgement input missing. Ships <strong>only with the missing half named in the output.</strong></p></div>
+<div class="card"><span class="tag t-manual">REPLAY_MANUAL_ONLY</span><p style="margin-top:8px">No structured source; a human can see it in a replay. Ships as a review target with a timestamp range. Patch-locked.</p></div>
+<div class="card"><span class="tag t-none">NOT_OBSERVABLE</span><p style="margin-top:8px">No defensible source, replay included. Does not ship at all.</p></div>
+</div>
+
+<h3>The missing-input model <span class="tag t-prop">PROPOSED</span></h3>
+<p>A single <code>NOT OBSERVABLE</code> label conceals three different problems with three different fixes. This is the highest-value refinement in the document.</p>
+<table>
+<tr><th style="width:190px">Class</th><th>Meaning</th><th>Fix</th><th style="width:150px">Example</th></tr>
+<tr><td><code>telemetry_missing</code></td><td>The entity is absent from all Riot sources.</td><td>Replay annotation, or never.</td><td>#6 Missed Crash — wave state</td></tr>
+<tr><td><code>information_state_missing</code></td><td>What the player could see. Absent from telemetry <strong>and</strong> not recoverable from replay, since replays play without fog of war.</td><td>None. Reword the claim.</td><td>#19 Blind Follow — vision</td></tr>
+<tr><td><code>domain_rule_missing</code></td><td>The data exists. A threshold is undefined.</td><td><strong>User defines it. No new data.</strong></td><td>#13 No-Roam — "high value"</td></tr>
+</table>
+<div class="callout"><strong>Six entries are blocked only by a missing domain rule</strong> — #13, #14, #15, #25, #38, #43. They need no telemetry whatsoever, only a number the player decides. These are the cheapest wins in the catalogue and were invisible under the old single label.</div>
+
+<h3>Output when judgement is not justified</h3>
+<pre>08:42  candidate decision point
+  observed   enemy jungler 618u away · pushed into enemy tower range
+             CS +6 this minute · no ally within 3000u
+  missing    wave state (telemetry) · vision (information state)
+  verdict    <b>not justified</b>
+  review     08:42 – 09:05</pre>
+<p>This is honest, useful, and shippable today. It is also the natural hand-off into replay review.</p>
+</section>
+
+<section id="evidence">
+<h2><span class="n">07</span>Evidence &amp; uncertainty model</h2>
+<p class="lede">Four epistemic levels, never collapsed into one confident sentence.</p>
+
+<svg viewBox="0 0 880 172" role="img" aria-label="Four epistemic levels from observed fact to recommendation, with unknown alongside">
+<defs><marker id="a2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#77777f"/></marker></defs>
+<rect x="8" y="16" width="192" height="62" rx="7" fill="#e7f2ec" stroke="#2f6b4f"/><text x="104" y="36" text-anchor="middle" font-size="11" font-family="monospace" fill="#2f6b4f" letter-spacing=".5">OBSERVED</text><text x="104" y="55" text-anchor="middle" font-size="11.5">618 units from the</text><text x="104" y="69" text-anchor="middle" font-size="11.5">enemy jungler</text>
+<line x1="204" y1="47" x2="228" y2="47" stroke="#77777f" marker-end="url(#a2)"/>
+<rect x="232" y="16" width="192" height="62" rx="7" fill="#e9eef7" stroke="#33518a"/><text x="328" y="36" text-anchor="middle" font-size="11" font-family="monospace" fill="#33518a" letter-spacing=".5">DERIVED</text><text x="328" y="55" text-anchor="middle" font-size="11.5">Fought with jungle</text><text x="328" y="69" text-anchor="middle" font-size="11.5">pressure adjacent</text>
+<line x1="428" y1="47" x2="452" y2="47" stroke="#77777f" marker-end="url(#a2)"/>
+<rect x="456" y="16" width="192" height="62" rx="7" fill="#f9f0dd" stroke="#8a6320"/><text x="552" y="36" text-anchor="middle" font-size="11" font-family="monospace" fill="#8a6320" letter-spacing=".5">INTERPRETATION</text><text x="552" y="55" text-anchor="middle" font-size="11.5">High-risk action</text><text x="552" y="69" text-anchor="middle" font-size="11.5">given the state</text>
+<line x1="652" y1="47" x2="676" y2="47" stroke="#77777f" marker-end="url(#a2)"/>
+<rect x="680" y="16" width="192" height="62" rx="7" fill="#eeeaf7" stroke="#5a4b8a"/><text x="776" y="36" text-anchor="middle" font-size="11" font-family="monospace" fill="#5a4b8a" letter-spacing=".5">RECOMMENDATION</text><text x="776" y="55" text-anchor="middle" font-size="11.5">Review jungler</text><text x="776" y="69" text-anchor="middle" font-size="11.5">tracking at 12:00</text>
+<rect x="232" y="100" width="416" height="52" rx="7" fill="#f8e9e9" stroke="#8a3b3b" stroke-dasharray="5 3"/><text x="440" y="120" text-anchor="middle" font-size="11" font-family="monospace" fill="#8a3b3b" letter-spacing=".5">UNKNOWN — travels alongside, never omitted</text><text x="440" y="139" text-anchor="middle" font-size="11.5">Whether the player had vision of the jungler</text>
+<line x1="328" y1="82" x2="328" y2="96" stroke="#8a3b3b" stroke-dasharray="3 2" marker-end="url(#a2)"/>
+<line x1="552" y1="82" x2="552" y2="96" stroke="#8a3b3b" stroke-dasharray="3 2" marker-end="url(#a2)"/>
+</svg>
+
+<p>The UI must make these distinguishable <strong>without four labels on every sentence</strong>. Resolution: visual weight carries the level. Observed facts are plain text; interpretation is italic and prefixed; unknowns sit in a bordered strip at the card's foot. The evidence panel spells the levels out explicitly on demand.</p>
+
+<h3>The evidence panel</h3>
+<p>Likely the single most trust-building feature. Every automatic claim answers <em>"why did the system say this?"</em> in one click, listing each supporting fact with its canonical source row — and the missing inputs beside them, with equal prominence.</p>
+
+<div class="wire"><div class="bar">EVIDENCE — Late rotation to bot skirmish · 11:42</div><div class="body">
+<div class="wr"><b>Observed</b>Fight began 11:42 at (4210, 3980) · 3v3 · you at mid corridor (7180, 7020) at 11:00 and 12:00 · distance to fight ≈ 6,400u · CS +7 during window · outcome 1–3 for your team</div>
+<div class="wr"><b>Derived</b>You did not participate. Lane resources retained ≈ 7 CS ≈ 154 gold against a lost 3v3.</div>
+<div class="wr"><b>Missing</b><span class="tag t-partial">domain_rule</span> value threshold for "should have rotated" &nbsp; <span class="tag t-none">information_state</span> whether the fight was visible to you</div>
+<div class="wr"><b>Provenance</b>events#8821 · frames(match,11,3) · frames(match,12,3) · rule v0.1</div>
+</div></div>
+</section>
+
+<section id="catalogue">
+<h2><span class="n">08</span>Catalogue disposition</h2>
+<p class="lede">All 70 entries remain <code>status: candidate</code> — none is verified by the player. Sections VIII–XV (mid-game, macro, meta) are unclassified and out of the current laning scope.</p>
+
+<table>
+<tr><th style="width:120px">Verdict</th><th style="width:60px">Count</th><th>Entries and disposition</th></tr>
+<tr><td><span class="tag t-build">BUILDABLE</span></td><td>13</td><td>#1, 5, 16, 17, 18, 20, 22, 23, 35, 37, 39, 41, 42 — ship as automatic verdicts. <strong>#18 (enemy roam unpunished)</strong> and <strong>#35 (unspent gold at a power spike)</strong> are the highest-value: both are invisible to the player in-game and trivially measurable.</td></tr>
+<tr><td><span class="tag t-partial">PARTIAL</span></td><td>18</td><td>Ship with missing half named. Six (#13, 14, 15, 25, 38, 43) need only a domain rule. Four (#19, 21, 31, 34) require renaming — their current names assert player knowledge the data cannot support.</td></tr>
+<tr><td><span class="tag t-manual">REPLAY_MANUAL_ONLY</span></td><td>12</td><td>All five wave entries (#6–9, 12), all five trading entries (#26–30), both ward-location entries (#32, 33). Become review targets.</td></tr>
+</table>
+
+<h3>Required renames <span class="tag t-prop">PROPOSED</span></h3>
+<table>
+<tr><th style="width:52px">#</th><th style="width:270px">Current — asserts knowledge</th><th>Recommended — observable half + named gap</th></tr>
+<tr><td>19</td><td>Blind Follow</td><td>Followed enemy mid rotation — vision state unknown</td></tr>
+<tr><td>21</td><td>Ignoring Enemy Jungler Information</td><td>Acted with enemy jungler at known distance — player knowledge unknown</td></tr>
+<tr><td>31</td><td>Blind Push</td><td>Pushed into exposed position with enemy proximity — visibility unknown</td></tr>
+<tr><td>34</td><td>Staying on a Known Dangerous Side</td><td>Objectively exposed position</td></tr>
+</table>
+
+<h3>K-Means clustering — classification</h3>
+<div class="card"><p style="margin-top:0"><span class="tag t-none">DEPRECATED</span> &nbsp;Remove <code>src/models.py</code>, <code>models/cluster_centroids.json</code>, <code>cluster_labels</code>, and the Patterns tab that renders them.</p>
+<table style="margin-bottom:0">
+<tr><th style="width:230px">Question</th><th>Finding</th></tr>
+<tr><td>Answers a user question?</td><td>No. "Which of four behaviour groups is this game" is not a question the player has.</td></tr>
+<tr><td>Labels stable?</td><td>No. IDs permute on essentially every data refresh; the centroid guard fires every time by construction.</td></tr>
+<tr><td>Feature set meaningful?</td><td>No. Three of nine features correlate pairwise at r = 0.75–0.82, making the model close to one-dimensional on death count.</td></tr>
+<tr><td>Trustworthy?</td><td>No. Silhouette 0.193. Across three independent feature sets and <em>k</em> = 2…8 the clusters recover <strong>game outcome</strong>, not behaviour.</td></tr>
+<tr><td>Explanatory in a dashboard?</td><td>No. A numeric cluster ID cannot be traced to evidence, which the decision model requires of every claim.</td></tr>
+</table>
+<p style="margin-bottom:0"><strong>Replacement:</strong> explicit named patterns computed from decision records — checkable, nameable, stable across refreshes, and carrying no ID binding. Retiring clustering also dissolves the long-standing cluster-ID permutation issue rather than answering it.</p></div>
+</section>
+
+<section id="replay">
+<h2><span class="n">09</span>Replay &amp; manual annotation</h2>
+<p class="lede">A separate evidence source with its own provenance. Never Riot telemetry, never silently merged with it.</p>
+
+<div class="warn"><strong>Replay review is perishable and cannot backfill.</strong> Riot replays are patch-locked and will not launch on a later client. Only current-patch games are reviewable — the corpus spanning 15.18 to 16.17 is permanently beyond annotation. This makes annotation a rolling opportunity on recent games, not a historical project.</div>
+
+<h3>Lifecycle</h3>
+<pre>decision record with availability = REPLAY_MANUAL_ONLY
+        ↓  system emits review candidate (t_start, t_end, what to look for)
+review queue, ordered by decision impact, current-patch games only
+        ↓  human opens replay at timestamp, observes, records
+annotation row  →  linked to match_id + decision_id
+        ↓
+decision record re-evaluated with annotation as an evidence source</pre>
+
+<h3>Annotation record <span class="tag t-prop">PROPOSED</span></h3>
+<pre>annotations
+  annotation_id, match_id, decision_id (nullable)
+  t_start_ms, t_end_ms
+  kind            wave_state | trade_context | mechanics | note
+  payload         JSON — e.g. {state:"slow_push", side:"blue", stacked_waves:2}
+  reviewer_confidence   high | medium | low
+  game_version    patch at observation time
+  created_at
+  source          'MANUAL_ANNOTATION'   <b>always; never 'riot'</b></pre>
+<p>Annotations are <strong>append-only and permanent</strong>. They record what a human saw at a point in time and are not revised when rules change — a corrected observation is a new row. <span class="tag t-def">DEFER</span> building the capture UI; the schema slot and the review-candidate emission are what must exist first.</p>
+</section>
+
+<section id="audit">
+<h2><span class="n">10</span>Dashboard diagnosis</h2>
+<p class="lede">Specific defects in <code>dashboard/app.py</code> (1,034 lines, four tabs). Diagnosed from source and schema, not from generic UX principle.</p>
+
+<div class="callout"><strong>Method note.</strong> A rendered visual inspection was not performed. The structural defects below are determined from source, the DuckDB schema, and query bindings — and the governing verdict (no per-game view exists at all) does not depend on pixels. A visual pass is worth doing against the <em>rebuilt</em> app, where it can check hierarchy and readability rather than confirm a known absence.</div>
+
+<table>
+<tr><th style="width:230px">Defect</th><th>Evidence</th><th style="width:110px">Severity</th></tr>
+<tr><td><strong>No per-game view exists</strong></td><td>Tabs are Overview, Champions, Matchups, Patterns. All season aggregates. The product's primary question has no page.</td><td>Fundamental</td></tr>
+<tr><td><strong>The map is never rendered</strong></td><td>Asset fetched by <code>scripts/fetch_minimap.py</code>; <code>src/mapping.py</code> implements <code>position_to_fraction</code> and <code>add_position_marker</code>, covered by <code>tests/test_mapping.py</code>. Neither is called from <code>dashboard/</code>. <code>position_x/y</code> sit unused. <strong>The projection layer is already built — only the wiring is missing.</strong></td><td>High</td></tr>
+<tr><td><strong>Patterns tab renders a deprecated model</strong></td><td>Cluster distribution, z-scored feature heatmap, and gold trajectory by cluster — all bound to the clustering being retired in §8.</td><td>High</td></tr>
+<tr><td><strong>No drill-down path</strong></td><td>No query joins a season aggregate to its constituent match list. The season→game→decision flow is structurally absent, not merely unpolished.</td><td>High</td></tr>
+<tr><td><strong>Reference material outranks findings</strong></td><td>Overview leads with win rate by patch and performance by time of day, both explicitly labelled "reference" in the source. Low-value context occupies the most valuable screen space.</td><td>Medium</td></tr>
+<tr><td><strong>Charts carry no interpretation</strong></td><td>A z-scored cluster feature heatmap is rendered with no statement of what a reader should conclude or do.</td><td>Medium</td></tr>
+<tr><td><strong>Filter scope is inconsistent</strong></td><td>The sidebar champion filter scopes Champions and Matchups only; Overview and Patterns silently ignore it.</td><td>Medium</td></tr>
+<tr><td><strong>Stale data surface</strong></td><td>The deploy DB holds 483 mid games from a 704-match source, while the raw corpus is 825 pairs. The published app is two collection cycles behind.</td><td>Medium</td></tr>
+</table>
+
+<p><strong>Verdict:</strong> the framework is not the problem. Streamlit renders the charts it is asked to render. The defect is that the application was designed around <em>what could be aggregated</em> rather than <em>what the player needs to decide</em>. <span class="tag t-dec">DECIDED</span> Keep Streamlit; rebuild the information architecture.</p>
+</section>
+
+<section id="ia">
+<h2><span class="n">11</span>Dashboard information architecture</h2>
+<p class="lede">Five pages. Each owns one question and one workflow position.</p>
+
+<table>
+<tr><th style="width:130px">Page</th><th style="width:250px">Question</th><th>Contains</th><th style="width:110px">Drills to</th></tr>
+<tr><td><strong>Overview</strong></td><td>How am I doing, and what should I look at?</td><td>Current form, streak, 2–3 highest-confidence patterns, review queue depth. Nothing else.</td><td>Patterns, Games</td></tr>
+<tr><td><strong>Games</strong></td><td>Which game should I inspect?</td><td>Scannable list. Filter by champion, opponent, result, patch, date, and <strong>by detected decision pattern</strong>.</td><td>Game Review</td></tr>
+<tr><td><strong>Game Review</strong></td><td>What happened in this game?</td><td>The seven blocks of §4. The product's centre of gravity.</td><td>Decision → Evidence</td></tr>
+<tr><td><strong>Patterns</strong></td><td>What keeps happening?</td><td>Named recurring decision patterns with frequency, trend, and the game list behind each.</td><td>Games (filtered)</td></tr>
+<tr><td><strong>Champions</strong></td><td>What works for me, and against what?</td><td>Pool with eligibility gating, matchup breakdown, explicit uncertainty.</td><td>Games (filtered)</td></tr>
+</table>
+
+<p class="muted">Matchups merges into Champions — it was a separate tab because the pool had nowhere to live, which the new hierarchy fixes. Settings/Data is a sidebar block, not a page.</p>
+
+<h3>The drill-down contract</h3>
+<svg viewBox="0 0 880 96" role="img" aria-label="Drill path from pattern to evidence">
+<defs><marker id="a3" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#2f5d50"/></marker></defs>
+<rect x="6" y="26" width="140" height="44" rx="7" fill="#e8f0ed" stroke="#2f5d50"/><text x="76" y="45" text-anchor="middle" font-size="12" font-weight="600">Pattern</text><text x="76" y="60" text-anchor="middle" font-size="10" fill="#4a4a52">"late to skirmish"</text>
+<line x1="150" y1="48" x2="176" y2="48" stroke="#2f5d50" marker-end="url(#a3)"/>
+<rect x="180" y="26" width="140" height="44" rx="7" fill="#e8f0ed" stroke="#2f5d50"/><text x="250" y="45" text-anchor="middle" font-size="12" font-weight="600">Affected games</text><text x="250" y="60" text-anchor="middle" font-size="10" fill="#4a4a52">31 of 40 losses</text>
+<line x1="324" y1="48" x2="350" y2="48" stroke="#2f5d50" marker-end="url(#a3)"/>
+<rect x="354" y="26" width="140" height="44" rx="7" fill="#e8f0ed" stroke="#2f5d50"/><text x="424" y="45" text-anchor="middle" font-size="12" font-weight="600">Game</text><text x="424" y="60" text-anchor="middle" font-size="10" fill="#4a4a52">timeline</text>
+<line x1="498" y1="48" x2="524" y2="48" stroke="#2f5d50" marker-end="url(#a3)"/>
+<rect x="528" y="26" width="140" height="44" rx="7" fill="#e8f0ed" stroke="#2f5d50"/><text x="598" y="45" text-anchor="middle" font-size="12" font-weight="600">Decision</text><text x="598" y="60" text-anchor="middle" font-size="10" fill="#4a4a52">11:42</text>
+<line x1="672" y1="48" x2="698" y2="48" stroke="#2f5d50" marker-end="url(#a3)"/>
+<rect x="702" y="26" width="140" height="44" rx="7" fill="#fff" stroke="#1a1a1c" stroke-width="1.6"/><text x="772" y="45" text-anchor="middle" font-size="12" font-weight="700">Evidence</text><text x="772" y="60" text-anchor="middle" font-size="10" fill="#4a4a52">facts + gaps</text>
+</svg>
+<p>Every step must be reachable by clicking, never by manually re-filtering another page. This is a first-class product flow and the primary acceptance test for the rebuilt UI.</p>
+</section>
+
+<section id="wireframes">
+<h2><span class="n">12</span>Wireframes</h2>
+
+<h3>Game Review</h3>
+<div class="wire"><div class="bar">GAME REVIEW · Taliyah vs Sylas · 16.17 · Win · 29:14</div><div class="body">
+<div class="wr"><b>1 · Verdict header</b><strong>Won the game, lost the lane.</strong> 4 solo deaths to Sylas in the mid corridor; jungle pressure was not a factor in three of them. Lane deficit peaked at −17 CS around minute 10.<div style="margin-top:6px"><span class="tag t-partial">lane: lost</span> <span class="tag t-build">3 decisions flagged</span> <span class="tag t-manual">2 review targets</span></div></div>
+<div class="wr"><b>2 · Lane phase 0–14 · diff vs Sylas</b>Four small multiples sharing an x-axis: CS diff · gold diff · XP diff · champion-damage exchange. Zero line emphasised. Death markers on every panel.<br><span class="muted">Answers: where did the lane turn, and on which axis?</span></div>
+<div class="wr"><b>3 · Decision timeline</b>Horizontal 0→29 min. Categorical rows: lane · movement · combat · objective. Markers sized by impact, coloured by availability. Brushing selects a window and filters blocks 4–6.</div>
+<div class="wr"><b>4 · Key decisions</b>3–6 cards. Collapsed: timestamp, name, one-line consequence, confidence. Expanded: full decision record and evidence panel.</div>
+<div class="wr"><b>5 · Map evidence</b>Minimap with the current brush window: your path, death markers, kill markers, enemy jungler positions. One question per toggle — never all layers at once.</div>
+<div class="wr"><b>6 · Review queue</b>2 targets · <code>04:00–06:00 wave state before first reset</code> · <code>12:40–13:10 trade sequence into double kill</code></div>
+<div class="wr"><b>7 · Reference stats</b><code>&lt;details&gt;</code> collapsed. KDA, CS/min, gold, damage, items, runes, skill order.</div>
+</div></div>
+
+<h3>Decision card, expanded</h3>
+<div class="wire"><div class="bar">12:01 · DEATH WITH ADJACENT JUNGLE PRESSURE · confidence: medium</div><div class="body">
+<div class="wr"><b>Context</b>Mid corridor. Level 9. Team even on gold. Graves last seen bot side at 11:00.</div>
+<div class="wr"><b>Options</b>Disengage to tower · contest with jungler (Viego 1,568u) · commit</div>
+<div class="wr"><b>Observed choice</b>Committed to the fight at (7,240 · 6,980)</div>
+<div class="wr"><b>Consequence</b>Died to Graves + Leona. Team lost the 2v3.</div>
+<div class="wr"><b>Evaluation</b><em>High-risk given observable state.</em> <span class="tag t-partial">PARTIAL</span></div>
+<div class="wr"><b>Missing</b><span class="tag t-none">information_state</span> whether Graves was visible to you at 12:00</div>
+<div class="wr"><b>→ Evidence panel</b> · <b>→ Add replay note</b></div>
+</div></div>
+</section>
+
+<section id="viz">
+<h2><span class="n">13</span>Visualization strategy</h2>
+<p class="lede">Every visualization declares a question, a source, an interpretation, and a next action. If it has no answerable question it is cut.</p>
+
+<table>
+<tr><th style="width:150px">Visual</th><th style="width:230px">Question answered</th><th>Source</th><th>Action after viewing</th></tr>
+<tr><td><strong>Lane diff small multiples</strong></td><td>Where and on which axis did the lane turn?</td><td><code>frames</code>, subject vs lane opponent</td><td>Brush that window into the timeline.</td></tr>
+<tr><td><strong>Decision timeline</strong></td><td>When did the choices that mattered occur?</td><td><code>decisions</code></td><td>Open a decision card.</td></tr>
+<tr><td><strong>Minimap overlay</strong></td><td>Where was everyone when it happened?</td><td><code>frames</code>, <code>events</code></td><td>Confirm or reject a proximity claim.</td></tr>
+<tr><td><strong>Damage exchange bars</strong></td><td>Which minutes did I lose the trade?</td><td><code>frames.damage_*</code> deltas</td><td>Queue a replay review of that minute.</td></tr>
+<tr><td><strong>Pattern frequency + trend</strong></td><td>Is this recurring, and is it improving?</td><td><code>decisions</code> aggregated</td><td>Open the affected game list.</td></tr>
+<tr><td><strong>Champion pool table</strong></td><td>What is eligible for a verdict?</td><td><code>participants</code> + binomial gate</td><td>Filter Games to that champion.</td></tr>
+</table>
+
+<h3>Cut outright</h3>
+<p><span class="pill">Cluster distribution</span><span class="pill">Cluster feature heatmap</span><span class="pill">Gold trajectory by cluster</span><span class="pill">Win rate by patch</span><span class="pill">Performance by time of day</span><span class="pill">CS advantage vs win-rate scatter</span></p>
+<p class="muted">The first three render a deprecated model. The next two are reference material occupying headline space. The scatter shows a correlation the player cannot act on.</p>
+
+<div class="callout"><strong>Chart labelling standard.</strong> Title states the subject, not the column name — "Your CS versus the opposing mid, by minute", not "CS Difference". A one-line "what this shows" sits beneath. "Why it matters" and "what this cannot conclude" live behind progressive disclosure, so caveats are always available and never in the way.</div>
+</section>
+
+<section id="dataarch">
+<h2><span class="n">14</span>Data architecture</h2>
+<p class="lede">Six layers. The boundary rules are what keep interpretation out of the parser and facts out of the UI.</p>
+
+<table>
+<tr><th style="width:120px">Layer</th><th>Purpose</th><th>Allowed</th><th>Prohibited</th><th style="width:105px">Storage</th></tr>
+<tr><td><strong>RAW</strong></td><td>Immutable evidence</td><td>Append new files only</td><td>Any modification after save</td><td><code>data/raw/</code> JSON</td></tr>
+<tr><td><strong>CANONICAL</strong></td><td>What happened</td><td>Parse, normalize, type, key</td><td>Any domain interpretation, any threshold</td><td>DuckDB</td></tr>
+<tr><td><strong>DERIVED</strong></td><td>Computed values</td><td>Arithmetic and algorithms with documented method</td><td>Judgement, naming a behaviour</td><td>DuckDB + provenance</td></tr>
+<tr><td><strong>DECISION</strong></td><td>Candidate decision points</td><td>Rule application producing records</td><td>Presentation concerns</td><td>DuckDB + rule_version</td></tr>
+<tr><td><strong>ANALYSIS</strong></td><td>User-facing conclusions</td><td>Interpretation, recommendation, aggregation</td><td>Reading <code>data/raw/</code> directly</td><td>Views / functions</td></tr>
+<tr><td><strong>PRESENTATION</strong></td><td>Rendering</td><td>Layout, formatting, caching</td><td><strong>Any business logic whatsoever</strong></td><td><code>dashboard/</code></td></tr>
+</table>
+
+<div class="callout"><strong>Domain knowledge enters at the DECISION layer only.</strong> It must never be embedded invisibly inside parsers. A parser that "knows" 14:00 ends laning has smuggled domain knowledge into canonical data, where it cannot be versioned or reviewed. Canonical parsing knows about JSON; it does not know about League.</div>
+</section>
+
+<section id="db">
+<h2><span class="n">15</span>Database design</h2>
+<p class="lede">Participant-long canonical core. The current two-participant shape with bolted-on <code>opp_*</code> columns is the root blocker for external-pressure analysis.</p>
+
+<svg viewBox="0 0 880 340" role="img" aria-label="Entity relationship diagram of canonical and derived tables">
+<rect x="10" y="10" width="860" height="176" rx="9" fill="#e7f2ec" fill-opacity=".35" stroke="#2f6b4f" stroke-dasharray="4 3"/>
+<text x="24" y="30" font-size="11" font-family="monospace" fill="#2f6b4f" letter-spacing="1">CANONICAL — parse only, immutable given raw</text>
+<rect x="28" y="42" width="168" height="62" rx="7" fill="#fff" stroke="#2f6b4f"/><text x="112" y="61" text-anchor="middle" font-size="12.5" font-weight="700">matches</text><text x="112" y="77" text-anchor="middle" font-size="10" font-family="monospace" fill="#4a4a52">match_id PK</text><text x="112" y="91" text-anchor="middle" font-size="10" fill="#4a4a52">patch · queue · duration</text>
+<rect x="228" y="42" width="168" height="62" rx="7" fill="#fff" stroke="#2f6b4f"/><text x="312" y="61" text-anchor="middle" font-size="12.5" font-weight="700">participants</text><text x="312" y="77" text-anchor="middle" font-size="10" font-family="monospace" fill="#4a4a52">(match_id, pid) PK</text><text x="312" y="91" text-anchor="middle" font-size="10" fill="#4a4a52">×10 · is_subject</text>
+<rect x="428" y="42" width="168" height="62" rx="7" fill="#fff" stroke="#2f6b4f"/><text x="512" y="61" text-anchor="middle" font-size="12.5" font-weight="700">frames</text><text x="512" y="74" text-anchor="middle" font-size="9.5" font-family="monospace" fill="#4a4a52">(match_id,frame_idx,pid) PK</text><text x="512" y="90" text-anchor="middle" font-size="10" fill="#4a4a52">timestamp_ms · pos · stats</text>
+<rect x="628" y="42" width="168" height="62" rx="7" fill="#fff" stroke="#2f6b4f"/><text x="712" y="61" text-anchor="middle" font-size="12.5" font-weight="700">events</text><text x="712" y="77" text-anchor="middle" font-size="10" font-family="monospace" fill="#4a4a52">(match_id, event_no) PK</text><text x="712" y="91" text-anchor="middle" font-size="10" fill="#4a4a52">+ full detail JSON</text>
+<rect x="628" y="116" width="168" height="56" rx="7" fill="#fff" stroke="#2f6b4f"/><text x="712" y="135" text-anchor="middle" font-size="12.5" font-weight="700">kill_damage</text><text x="712" y="150" text-anchor="middle" font-size="9.5" font-family="monospace" fill="#4a4a52">(match,event,dir,idx) PK</text><text x="712" y="164" text-anchor="middle" font-size="10" fill="#4a4a52">per-source attribution</text>
+<line x1="196" y1="73" x2="228" y2="73" stroke="#2f6b4f"/><line x1="396" y1="73" x2="428" y2="73" stroke="#2f6b4f"/><line x1="596" y1="73" x2="628" y2="73" stroke="#2f6b4f"/><line x1="712" y1="104" x2="712" y2="116" stroke="#2f6b4f"/>
+
+<rect x="10" y="196" width="560" height="134" rx="9" fill="#e9eef7" fill-opacity=".4" stroke="#33518a" stroke-dasharray="4 3"/>
+<text x="24" y="216" font-size="11" font-family="monospace" fill="#33518a" letter-spacing="1">DERIVED + DECISION — recomputable, versioned</text>
+<rect x="28" y="228" width="160" height="56" rx="7" fill="#fff" stroke="#33518a"/><text x="108" y="247" text-anchor="middle" font-size="12.5" font-weight="700">lane_state</text><text x="108" y="262" text-anchor="middle" font-size="10" fill="#4a4a52">per-minute diffs</text><text x="108" y="275" text-anchor="middle" font-size="10" fill="#4a4a52">vs lane opponent</text>
+<rect x="204" y="228" width="160" height="56" rx="7" fill="#fff" stroke="#33518a"/><text x="284" y="247" text-anchor="middle" font-size="12.5" font-weight="700">decisions</text><text x="284" y="262" text-anchor="middle" font-size="10" fill="#4a4a52">availability · confidence</text><text x="284" y="275" text-anchor="middle" font-size="10" fill="#4a4a52">rule_version</text>
+<rect x="380" y="228" width="160" height="56" rx="7" fill="#fff" stroke="#33518a"/><text x="460" y="247" text-anchor="middle" font-size="12.5" font-weight="700">decision_evidence</text><text x="460" y="262" text-anchor="middle" font-size="10" fill="#4a4a52">fact → canonical row</text><text x="460" y="275" text-anchor="middle" font-size="10" fill="#4a4a52">+ missing_inputs</text>
+<line x1="188" y1="256" x2="204" y2="256" stroke="#33518a"/><line x1="364" y1="256" x2="380" y2="256" stroke="#33518a"/>
+<line x1="512" y1="104" x2="284" y2="228" stroke="#33518a" stroke-dasharray="3 2"/>
+
+<rect x="596" y="196" width="274" height="134" rx="9" fill="#eeeaf7" fill-opacity=".45" stroke="#5a4b8a" stroke-dasharray="4 3"/>
+<text x="610" y="216" font-size="11" font-family="monospace" fill="#5a4b8a" letter-spacing="1">HUMAN EVIDENCE</text>
+<rect x="614" y="228" width="238" height="56" rx="7" fill="#fff" stroke="#5a4b8a"/><text x="733" y="247" text-anchor="middle" font-size="12.5" font-weight="700">annotations</text><text x="733" y="262" text-anchor="middle" font-size="10" fill="#4a4a52">append-only · patch-stamped</text><text x="733" y="275" text-anchor="middle" font-size="10" fill="#4a4a52">source = MANUAL_ANNOTATION</text>
+<line x1="614" y1="256" x2="540" y2="256" stroke="#5a4b8a" stroke-dasharray="3 2"/>
+</svg>
+
+<h3>Design principles applied</h3>
+<table>
+<tr><th style="width:190px">Question</th><th>Answer</th></tr>
+<tr><td>What is immutable?</td><td><code>data/raw/</code> and <code>annotations</code>. Nothing else.</td></tr>
+<tr><td>What is recomputable?</td><td>Everything from CANONICAL downward. A full rebuild from raw must be a routine operation, not an event.</td></tr>
+<tr><td>Canonical timeline identity</td><td><code>(match_id, frame_index, participant_id)</code> plus <code>timestamp_ms</code>. <strong>"Minute" is an interpretation, not an identity</strong> — derive it at query time. This survives a future dataset with a different frame interval.</td></tr>
+<tr><td>What needs provenance?</td><td>Every DERIVED and DECISION value: <code>availability_class</code>, <code>derivation_method</code>, <code>confidence</code>.</td></tr>
+<tr><td>Identifiers</td><td><strong>No <code>puuid</code>, <code>summonerName</code> or <code>summonerId</code> for any participant.</strong> <code>is_subject</code> is sufficient; the subject's own PUUID stays in <code>.env</code>. Storing nine other people's account identifiers is a change in kind from the current database.</td></tr>
+<tr><td>Sentinel handling</td><td><code>participantId = 0</code> means "no participant" and appears on <code>t=0</code> events. It must never join to a player slot.</td></tr>
+</table>
+
+<div class="callout"><strong>Retain the full event payload</strong> in <code>events.detail</code> even where structured extraction is incomplete. The alternative is discovering in six months that a field is needed from an API whose window on old matches may have closed. Roughly 1.1k events per match is trivial for DuckDB at any plausible corpus size.</div>
+</section>
+
+<section id="flow">
+<h2><span class="n">16</span>End-to-end data flow</h2>
+<svg viewBox="0 0 880 470" role="img" aria-label="End to end pipeline from Riot API through canonical processing to dashboard and human review">
+<defs><marker id="a4" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#4a4a52"/></marker></defs>
+<rect x="300" y="8" width="280" height="40" rx="7" fill="#f1efea" stroke="#77777f"/><text x="440" y="26" text-anchor="middle" font-size="12.5" font-weight="600">Riot Match-V5</text><text x="440" y="40" text-anchor="middle" font-size="10" fill="#4a4a52">external · rate-limited · 24h key</text>
+<line x1="440" y1="48" x2="440" y2="66" stroke="#4a4a52" marker-end="url(#a4)"/>
+<rect x="300" y="70" width="280" height="40" rx="7" fill="#fff" stroke="#1a1a1c"/><text x="440" y="88" text-anchor="middle" font-size="12.5" font-weight="700">collector.py</text><text x="440" y="102" text-anchor="middle" font-size="10" fill="#4a4a52">skips existing · write-once</text>
+<line x1="440" y1="110" x2="440" y2="128" stroke="#4a4a52" marker-end="url(#a4)"/>
+<rect x="300" y="132" width="280" height="40" rx="7" fill="#e7f2ec" stroke="#2f6b4f" stroke-width="1.7"/><text x="440" y="150" text-anchor="middle" font-size="12.5" font-weight="700">data/raw/ — immutable</text><text x="440" y="164" text-anchor="middle" font-size="10" fill="#4a4a52">detail + timeline pairs</text>
+<line x1="300" y1="152" x2="200" y2="152" stroke="#4a4a52" marker-end="url(#a4)"/>
+<rect x="20" y="132" width="176" height="40" rx="7" fill="#fff" stroke="#77777f"/><text x="108" y="150" text-anchor="middle" font-size="12" font-weight="600">audit_raw_fields.py</text><text x="108" y="164" text-anchor="middle" font-size="10" fill="#4a4a52">→ DATA_AUDIT.md</text>
+<line x1="440" y1="172" x2="440" y2="190" stroke="#4a4a52" marker-end="url(#a4)"/>
+<rect x="300" y="194" width="280" height="40" rx="7" fill="#fff" stroke="#1a1a1c"/><text x="440" y="212" text-anchor="middle" font-size="12.5" font-weight="700">processor.py — canonical</text><text x="440" y="226" text-anchor="middle" font-size="10" fill="#4a4a52">parse only · no interpretation</text>
+<line x1="440" y1="234" x2="440" y2="252" stroke="#4a4a52" marker-end="url(#a4)"/>
+<rect x="300" y="256" width="280" height="40" rx="7" fill="#e7f2ec" stroke="#2f6b4f"/><text x="440" y="274" text-anchor="middle" font-size="12.5" font-weight="700">DuckDB — canonical tables</text><text x="440" y="288" text-anchor="middle" font-size="10" fill="#4a4a52">matches · participants · frames · events</text>
+<line x1="440" y1="296" x2="440" y2="314" stroke="#4a4a52" marker-end="url(#a4)"/>
+<rect x="300" y="318" width="280" height="40" rx="7" fill="#e9eef7" stroke="#33518a"/><text x="440" y="336" text-anchor="middle" font-size="12.5" font-weight="700">derived → decision engine</text><text x="440" y="350" text-anchor="middle" font-size="10" fill="#4a4a52">domain rules enter HERE · versioned</text>
+<line x1="700" y1="338" x2="586" y2="338" stroke="#4a4a52" marker-end="url(#a4)"/>
+<rect x="704" y="318" width="160" height="40" rx="7" fill="#f9f0dd" stroke="#8a6320"/><text x="784" y="336" text-anchor="middle" font-size="11.5" font-weight="600">domain + catalogue</text><text x="784" y="350" text-anchor="middle" font-size="10" fill="#4a4a52">ANALYSIS_SPEC</text>
+<line x1="380" y1="358" x2="300" y2="386" stroke="#4a4a52" marker-end="url(#a4)"/>
+<line x1="500" y1="358" x2="580" y2="386" stroke="#4a4a52" marker-end="url(#a4)"/>
+<rect x="150" y="390" width="200" height="40" rx="7" fill="#fff" stroke="#1a1a1c"/><text x="250" y="408" text-anchor="middle" font-size="12" font-weight="600">per-game analysis</text><text x="250" y="422" text-anchor="middle" font-size="10" fill="#4a4a52">decision records</text>
+<rect x="530" y="390" width="200" height="40" rx="7" fill="#fff" stroke="#1a1a1c"/><text x="630" y="408" text-anchor="middle" font-size="12" font-weight="600">season aggregation</text><text x="630" y="422" text-anchor="middle" font-size="10" fill="#4a4a52">patterns over the same records</text>
+<line x1="250" y1="430" x2="250" y2="446" stroke="#4a4a52" marker-end="url(#a4)"/><line x1="630" y1="430" x2="630" y2="446" stroke="#4a4a52" marker-end="url(#a4)"/>
+<rect x="150" y="448" width="580" height="16" rx="5" fill="#e8f0ed" stroke="#2f5d50"/><text x="440" y="460" text-anchor="middle" font-size="11" font-weight="600">publication boundary → deploy DB → Streamlit</text>
+<rect x="20" y="256" width="176" height="102" rx="7" fill="#eeeaf7" stroke="#5a4b8a" stroke-dasharray="4 3"/><text x="108" y="278" text-anchor="middle" font-size="11.5" font-weight="700" fill="#5a4b8a">human in the loop</text><text x="108" y="296" text-anchor="middle" font-size="10" fill="#4a4a52">review target emitted</text><text x="108" y="311" text-anchor="middle" font-size="10" fill="#4a4a52">↓ replay, current patch</text><text x="108" y="326" text-anchor="middle" font-size="10" fill="#4a4a52">↓ annotation row</text><text x="108" y="345" text-anchor="middle" font-size="10" fill="#4a4a52">↓ re-evaluate decision</text>
+<line x1="300" y1="338" x2="200" y2="320" stroke="#5a4b8a" stroke-dasharray="3 2" marker-end="url(#a4)"/>
+<line x1="196" y1="296" x2="300" y2="330" stroke="#5a4b8a" stroke-dasharray="3 2" marker-end="url(#a4)"/>
+</svg>
+<p><strong>Batch and deterministic</strong> from collector through decision engine — the same raw corpus and the same rule version always produce identical decision records. <strong>Human-in-the-loop</strong> only in the purple block, and its output is a distinct evidence source that never masquerades as telemetry.</p>
+</section>
+
+<section id="components">
+<h2><span class="n">17</span>Component architecture</h2>
+<table>
+<tr><th style="width:170px">Component</th><th>Owns</th><th>Depends on</th><th>Must never</th></tr>
+<tr><td><code>collector.py</code></td><td>Riot calls, rate limiting, raw persistence</td><td>Riot API, <code>.env</code></td><td>Transform or parse</td></tr>
+<tr><td><code>audit_raw_fields.py</code></td><td>Corpus inventory, field availability</td><td><code>data/raw/</code></td><td>Assume a corpus size</td></tr>
+<tr><td><code>processor.py</code></td><td>Canonical schema and parsing</td><td><code>data/raw/</code></td><td>Call APIs · apply domain rules</td></tr>
+<tr><td><code>derive.py</code></td><td>Lane state, exchange ledgers, proximity</td><td>Canonical tables</td><td>Read <code>data/raw/</code> · name behaviours</td></tr>
+<tr><td><code>decisions.py</code></td><td>Rule application, decision records</td><td>Derived + catalogue</td><td>Format for display</td></tr>
+<tr><td><code>analysis.py</code></td><td>Per-game report, season patterns</td><td>Decisions</td><td>Query canonical directly</td></tr>
+<tr><td><code>dashboard/</code></td><td>Rendering, caching, navigation</td><td>Analysis</td><td><strong>Contain any business logic</strong></td></tr>
+<tr><td><code>docs/domain/</code></td><td>What mechanics mean</td><td>Nothing</td><td>Mention code or availability</td></tr>
+<tr><td><code>DATA_AUDIT.md</code></td><td>What telemetry observes</td><td>Generated from raw</td><td>Be hand-edited</td></tr>
+<tr><td><code>ANALYSIS_SPEC.md</code></td><td>How concepts are operationalized</td><td>Domain + audit</td><td>Restate either</td></tr>
+</table>
+<div class="callout"><strong>Dependency direction is strictly downward.</strong> Domain knowledge informs the decision layer through an explicit, versioned specification — it is never compiled into a parser. That single rule is what lets the domain evolve without a data rebuild, and the data rebuild without a domain review.</div>
+</section>
+
+<section id="versioning">
+<h2><span class="n">18</span>Provenance &amp; versioning</h2>
+<p class="lede">A conclusion such as "this was the correct item" may hold on one patch and not the next. Patch-sensitive conclusions and timeless principles must never mix.</p>
+<table>
+<tr><th style="width:190px">Versioned thing</th><th>Where it lives</th><th>Why it matters</th></tr>
+<tr><td><code>game_version</code> / patch</td><td><code>matches</code> row</td><td>Parsed from <code>gameVersion</code>, first two segments. Never hardcode a current patch.</td></tr>
+<tr><td>Season</td><td>Derived from patch</td><td>Boundary is a patch date, not a calendar date.</td></tr>
+<tr><td><code>rule_version</code></td><td><code>decisions</code> row</td><td>A decision produced by rule v0.1 is not comparable to one from v0.2. Without this, trends silently measure rule changes.</td></tr>
+<tr><td><code>catalogue_version</code></td><td><code>decisions</code> row</td><td>Entries get renamed, merged and split. Historical records must resolve to the definition in force when written.</td></tr>
+<tr><td><code>domain_version</code></td><td><code>docs/domain/</code> + decision row</td><td>Domain constants are patch-sensitive and carry verification dates. <strong>Objective spawn timers are an exception — they are derivable from the corpus</strong> (earliest observed kill bounds spawn from above: Grubs 8:04, Herald 15:14, Baron 20:15, Dragon 5:24, Atakhan 20:14 across 825 games), so they become measured facts rather than maintained constants. Pooled across patches; compute per patch where patch-accuracy matters.</td></tr>
+<tr><td><code>availability_class</code></td><td>Every derived value</td><td>From <code>DATA_AUDIT.md</code>, regenerated as the corpus grows.</td></tr>
+</table>
+<div class="warn"><strong>Corpus-size independence is a standing rule.</strong> No count is an architectural assumption. The pipeline enumerates <code>data/raw/</code> at run time — never from a module constant, a context document, or a design file. A count recorded anywhere is a dated observation, not an input.</div>
+</section>
+
+<section id="privacy">
+<h2><span class="n">19</span>Privacy &amp; publication boundary</h2>
+<p class="lede">Publication is an explicit transformation, not a file copy. It is the only place private data becomes public.</p>
+<svg viewBox="0 0 880 128" role="img" aria-label="Publication boundary between private and public data">
+<rect x="10" y="14" width="390" height="100" rx="9" fill="#f8e9e9" fill-opacity=".4" stroke="#8a3b3b" stroke-dasharray="4 3"/>
+<text x="24" y="34" font-size="11" font-family="monospace" fill="#8a3b3b" letter-spacing="1">PRIVATE — gitignored, local only</text>
+<text x="24" y="56" font-size="12">.env — PUUID, API key</text>
+<text x="24" y="74" font-size="12">data/raw/ — full payloads, all identifiers</text>
+<text x="24" y="92" font-size="12">data/lol.duckdb — development database</text>
+<rect x="410" y="30" width="60" height="68" rx="7" fill="#fff" stroke="#1a1a1c" stroke-width="1.7"/>
+<text x="440" y="56" text-anchor="middle" font-size="10.5" font-weight="700">build</text><text x="440" y="70" text-anchor="middle" font-size="10.5" font-weight="700">deploy</text><text x="440" y="84" text-anchor="middle" font-size="10.5" font-weight="700">db</text>
+<rect x="480" y="14" width="390" height="100" rx="9" fill="#e7f2ec" fill-opacity=".45" stroke="#2f6b4f" stroke-dasharray="4 3"/>
+<text x="494" y="34" font-size="11" font-family="monospace" fill="#2f6b4f" letter-spacing="1">PUBLIC — committed, served by Streamlit</text>
+<text x="494" y="56" font-size="12">no puuid · no account identifiers</text>
+<text x="494" y="74" font-size="12">game_datetime truncated to midnight UTC</text>
+<text x="494" y="92" font-size="12">only what a rendered view actually reads</text>
+</svg>
+<h3>Rules the boundary enforces</h3>
+<ul>
+<li><strong>Explicit allow-list, never a copy.</strong> The publisher names each table and column it emits, so a new private column cannot leak by default.</li>
+<li><strong>No PUUID, ever</strong> — and under the new schema no participant identifiers exist to leak in the first place.</li>
+<li><strong>Timestamps truncated to midnight UTC.</strong> Exact kickoff time plus patch, both mid champions and a death sequence was enough to locate a game on third-party sites. All consumers use <code>&gt;=</code> comparisons, so season, patch and date filtering are unaffected.</li>
+<li><strong>Re-identification review is part of publishing.</strong> Per-death positions plus killer champion form an ordered (minute, champion) sequence — a materially stronger fingerprint than champion plus date. Adding a per-game public view requires re-running this assessment. <span class="tag t-unk">REQUIRES DOMAIN REVIEW</span></li>
+<li><strong>Annotations are private by default.</strong> Free-text reviewer notes are not published.</li>
+</ul>
+<div class="warn"><strong>Open decision.</strong> The per-game view is the centre of the product, and a public dated game list is the most identifying artefact the project would publish. Options: keep Game Review local-only and publish season aggregates; publish with coarsened identifiers; or accept the risk explicitly. <strong>This is a user decision and is not resolved here.</strong></div>
+</section>
+
+<section id="risks">
+<h2><span class="n">20</span>Technical risks</h2>
+<table>
+<tr><th style="width:195px">Risk</th><th style="width:70px">Impact</th><th style="width:80px">Likelihood</th><th>Mitigation</th><th style="width:78px">Act now?</th></tr>
+<tr><td><strong>Decision-rule false positives</strong></td><td>High</td><td>High</td><td>The core analytical risk. Every rule needs synthetic scenarios plus hand-verified real examples before shipping. A confident wrong verdict destroys trust faster than no verdict.</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Domain rules invented by the agent</strong></td><td>High</td><td>High</td><td>Any threshold that changes a conclusion is a user decision. Rules carry <code>domain_version</code> and an owner.</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Catalogue entries unverified</strong></td><td>High</td><td>Certain</td><td>All 70 are <code>candidate</code>. Build only against entries the player has confirmed describe real decisions.</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Role/opponent mis-mapping</strong></td><td>High</td><td>Low</td><td>The invariant gate: every participant's detail CS and gold must equal the final frame's. Verified 8,250/8,250 with zero mismatches; must hold on every rebuild.</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Analysis drift</strong></td><td>High</td><td>Medium</td><td><code>rule_version</code> on every decision row. Without it a "pattern improving" trend may be measuring a rule change.</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Stale deploy DB</strong></td><td>Medium</td><td>Certain</td><td>Already occurring — 483 published from 704 source against 825 raw. Rebuild is routine, and a freshness check belongs in the publish step.</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Derived recall misread as observed</strong></td><td>Medium</td><td>Medium</td><td><code>ITEM_PURCHASED</code> proves a purchase. Recall stays derived, with method and confidence attached.</td><td>Yes</td></tr>
+<tr><td><strong>Replay perishability</strong></td><td>Medium</td><td>Certain</td><td>Patch-locked. Review queue must prioritise current-patch games; older review targets are unreachable forever.</td><td>Yes</td></tr>
+<tr><td><strong>Dashboard information overload</strong></td><td>Medium</td><td>High</td><td>Every visual declares its question. Anything without one is cut.</td><td>Yes</td></tr>
+<tr><td><strong>Riot API changes</strong></td><td>Medium</td><td>Medium</td><td>Raw payloads retained in full, so re-parsing is always possible. The audit detects field drift on each run.</td><td>No</td></tr>
+<tr><td><strong>Multiple-comparison false verdicts</strong></td><td>Medium</td><td>High</td><td>Correct, or label results as leads. Currently uncorrected.</td><td>Yes</td></tr>
+<tr><td><strong>Privacy via per-game publication</strong></td><td>High</td><td>Medium</td><td>Unresolved — see §19.</td><td><strong>Yes</strong></td></tr>
+<tr><td><strong>Performance at scale</strong></td><td>Low</td><td>Low</td><td>DuckDB handles millions of rows locally. Not a concern at personal corpus size.</td><td>No</td></tr>
+<tr><td><strong>Schema evolution</strong></td><td>Low</td><td>Medium</td><td>Full rebuild from raw is cheap and routine, so migrations are unnecessary.</td><td>No</td></tr>
+</table>
+</section>
+
+<section id="testing">
+<h2><span class="n">21</span>Testing strategy</h2>
+<p class="lede">Tests protect analytical correctness, not coverage percentages. A green suite proves the software works; it does not prove the analysis describes the game.</p>
+<table>
+<tr><th style="width:135px">Layer</th><th>What is tested</th><th>Method</th></tr>
+<tr><td><strong>RAW</strong></td><td>Corpus integrity — pairing, duplicates, malformed files</td><td>The audit script, re-runnable</td></tr>
+<tr><td><strong>CANONICAL</strong></td><td>Parser correctness; every participant maps to the right slot</td><td>Fixtures + the cross-payload invariant over the full corpus</td></tr>
+<tr><td><strong>DERIVED</strong></td><td>Formula correctness and invariants</td><td>Unit tests; edge cases — zero deaths, missing minute, remake with blank <code>teamPosition</code>, <code>participantId = 0</code></td></tr>
+<tr><td><strong>DECISION</strong></td><td>Rules fire when they should and stay silent when they should not</td><td><strong>Synthetic scenarios plus hand-labelled real matches.</strong> The most important tests in the project</td></tr>
+<tr><td><strong>ANALYSIS</strong></td><td>No claim exceeds its evidence; PARTIAL always names its missing half</td><td>Assertions over emitted records</td></tr>
+<tr><td><strong>DASHBOARD</strong></td><td>Renders without exception; drill path reachable</td><td>Streamlit <code>AppTest</code> smoke tests</td></tr>
+<tr><td><strong>PUBLICATION</strong></td><td>No identifiers, no precise timestamps</td><td>Assertions on the built deploy DB</td></tr>
+</table>
+<div class="callout"><strong>The two validation layers are independent.</strong> Software correctness is tests. <em>Analytical</em> correctness is a human reading a generated report against a replay or a reference source and marking each line correct, wrong, or unverifiable. Only the second can catch a parser that is 100% green and describing the wrong game.</div>
+</section>
+
+<section id="scope">
+<h2><span class="n">22</span>Finalize now vs defer</h2>
+<div class="grid2">
+<div class="card"><h4 style="color:var(--build)">Finalize before implementation resumes</h4>
+<ul>
+<li>Product information hierarchy (§2–5)</li>
+<li>Per-game contract — the seven blocks</li>
+<li>Decision record shape and availability model</li>
+<li>Missing-input classification</li>
+<li>Canonical schema and layer boundaries</li>
+<li>Provenance and versioning columns</li>
+<li>Dashboard navigation — five pages and the drill contract</li>
+<li>Publication boundary rules</li>
+<li>K-Means retirement</li>
+</ul></div>
+<div class="card"><h4>Defer, with a principled reason</h4>
+<ul>
+<li><strong>Live Client telemetry</strong> — researched; upgrades zero entries</li>
+<li><strong>Wave-state analysis</strong> — no source exists; replay annotation only</li>
+<li><strong>Per-trade evaluation</strong> — requires enemy state and casts that do not exist</li>
+<li><strong>Automatic vision analysis</strong> — no ward coordinates anywhere</li>
+<li><strong>Pro comparison</strong> — needs KR/EUW routing; keep patch-awareness and matchup context so it stays possible</li>
+<li><strong>Annotation capture UI</strong> — schema slot now, tooling once review targets prove useful</li>
+<li><strong>Catalogue sections VIII–XV</strong> — mid-game and macro, outside laning scope</li>
+<li><strong>ML of any kind</strong> — no question currently requires it</li>
+</ul></div>
+</div>
+</section>
+
+<section id="roadmap">
+<h2><span class="n">23</span>Implementation roadmap</h2>
+<svg viewBox="0 0 880 76" role="img" aria-label="Phase timeline">
+<line x1="18" y1="42" x2="862" y2="42" stroke="#d0cdc6" stroke-width="2.5"/>
+<circle cx="60" cy="42" r="10" fill="#2f6b4f"/><text x="60" y="25" text-anchor="middle" font-size="10.5" font-weight="700">P0</text><text x="60" y="66" text-anchor="middle" font-size="9.5" fill="#4a4a52">audit ✓</text>
+<circle cx="192" cy="42" r="10" fill="#2f5d50"/><text x="192" y="25" text-anchor="middle" font-size="10.5" font-weight="700">P1</text><text x="192" y="66" text-anchor="middle" font-size="9.5" fill="#4a4a52">canonical</text>
+<circle cx="324" cy="42" r="10" fill="#33518a"/><text x="324" y="25" text-anchor="middle" font-size="10.5" font-weight="700">P2</text><text x="324" y="66" text-anchor="middle" font-size="9.5" fill="#4a4a52">derived+report</text>
+<circle cx="456" cy="42" r="10" fill="#33518a"/><text x="456" y="25" text-anchor="middle" font-size="10.5" font-weight="700">P3</text><text x="456" y="66" text-anchor="middle" font-size="9.5" fill="#4a4a52">decisions</text>
+<circle cx="588" cy="42" r="10" fill="#8a6320"/><text x="588" y="25" text-anchor="middle" font-size="10.5" font-weight="700">P4</text><text x="588" y="66" text-anchor="middle" font-size="9.5" fill="#4a4a52">game review UI</text>
+<circle cx="720" cy="42" r="10" fill="#8a6320"/><text x="720" y="25" text-anchor="middle" font-size="10.5" font-weight="700">P5</text><text x="720" y="66" text-anchor="middle" font-size="9.5" fill="#4a4a52">season+patterns</text>
+<circle cx="840" cy="42" r="10" fill="#5a4b8a"/><text x="840" y="25" text-anchor="middle" font-size="10.5" font-weight="700">P6</text><text x="840" y="66" text-anchor="middle" font-size="9.5" fill="#4a4a52">review loop</text>
+</svg>
+<p class="muted">Phases merged from the earlier plan: external pressure folds into P3 (it is a decision-rule input, not a phase), and dashboard work splits into per-game (P4) before season (P5) to match the product priority.</p>
+
+<details><summary>P1 · Canonical representation</summary>
+<dl class="kv">
+<dt>Goal</dt><dd>Rewrite <code>processor.py</code> to the participant-long schema; rebuild DuckDB from every valid pair in the current corpus.</dd>
+<dt>Why now</dt><dd>Everything else is blocked. The current DB is 121 games stale and structurally cannot express external pressure.</dd>
+<dt>Files</dt><dd><code>src/processor.py</code> (rewrite) · <code>tests/test_processor.py</code> (rewrite) · delete <code>src/models.py</code>, <code>models/cluster_centroids.json</code>, <code>tests/test_models.py</code> · quarantine the Level-2 half of <code>tests/test_features.py</code></dd>
+<dt>Outputs</dt><dd>Canonical DuckDB · a one-match completeness dump marking unavailable fields explicitly</dd>
+<dt>Acceptance</dt><dd>Participant-mapping invariant holds for every participant in every valid pair, zero mismatches · surviving suite green · <code>ruff</code> clean · row counts recorded as dated observations</dd>
+<dt>Non-goals</dt><dd>No analysis, no UI, no decision rules</dd>
+</dl></details>
+
+<details><summary>P2 · Derived layer and per-game report</summary>
+<dl class="kv">
+<dt>Goal</dt><dd>Lane state versus the actual opponent, exchange ledgers, proximity; <code>src/match_report.py</code> emitting a text report for one match id.</dd>
+<dt>Why now</dt><dd>Text output forces the analytical definitions to stabilise before any pixel is spent on them.</dd>
+<dt>Outputs</dt><dd>Markdown report per match · every value carrying availability, method and confidence</dd>
+<dt>Acceptance</dt><dd><strong>Human validation:</strong> generate for a current-patch match, watch the replay, mark every line correct / wrong / unverifiable. That list is the exit criterion — not a passing test.</dd>
+<dt>Non-goals</dt><dd>No UI. No decision verdicts yet.</dd>
+</dl></details>
+
+<details><summary>P3 · Decision engine</summary>
+<dl class="kv">
+<dt>Goal</dt><dd>Implement rules for the 13 BUILDABLE entries plus PARTIAL entries whose domain rule the player has defined. Emit decision records with evidence and missing inputs. External-pressure inputs (jungler proximity, ally presence, kill-damage attribution) are computed here.</dd>
+<dt>Dependencies</dt><dd><strong>Blocked on the player verifying catalogue entries</strong> and defining thresholds for the six <code>domain_rule_missing</code> entries.</dd>
+<dt>Acceptance</dt><dd>Each rule has synthetic scenarios and hand-labelled real examples · no PARTIAL record ships without a named missing half · review targets emitted for REPLAY_MANUAL_ONLY</dd>
+</dl></details>
+
+<details><summary>P4 · Game Review page</summary>
+<dl class="kv">
+<dt>Goal</dt><dd>The seven blocks of §4, including the first map view the project has ever rendered.</dd>
+<dt>Files</dt><dd><code>dashboard/</code> restructured · Patterns tab and cluster queries removed</dd>
+<dt>Acceptance</dt><dd>Drill path game → decision → evidence works by clicking · every visual states its question · <code>AppTest</code> clean</dd>
+</dl></details>
+
+<details><summary>P5 · Season, patterns and publication</summary>
+<dl class="kv">
+<dt>Goal</dt><dd>Aggregate decision records into named patterns; re-point the surviving Level-2 statistics at the canonical schema; rebuild the deploy DB and publish.</dd>
+<dt>Dependencies</dt><dd>The §19 privacy decision must be settled before any per-game view is published.</dd>
+<dt>Acceptance</dt><dd>Pattern → games → game → decision → evidence works end to end · publication assertions pass · live app rebuilt and verified</dd>
+</dl></details>
+
+<details><summary>P6 · Review loop</summary>
+<dl class="kv">
+<dt>Goal</dt><dd>Review queue surfaced in the UI; annotation capture; re-evaluation of decisions carrying annotations.</dd>
+<dt>Why last</dt><dd>Only worth building once review targets have proven useful in practice.</dd>
+</dl></details>
+</section>
+
+<section id="done">
+<h2><span class="n">24</span>Definition of done</h2>
+<div class="card"><p style="margin-top:0"><strong>The end-to-end experience.</strong></p>
+<p>The player opens the dashboard after a session. The Overview says which way current form is moving and names two or three patterns the evidence actually supports — for instance that in losses the champion-damage exchange turns against them around minute three while their CS stays ahead.</p>
+<p>They open that pattern. It lists the games it was detected in, with frequency and trend. They pick a recent one.</p>
+<p>Game Review opens on a verdict line and the lane-phase curves against the actual opponent. The timeline shows when the choices occurred. They open a flagged decision at 12:01 and read the record: context, the options that existed, what they did, what followed — and that the enemy jungler was 618 units away, with a note that whether it was <em>visible</em> is unknown.</p>
+<p>They click through to the evidence panel and see every supporting fact traced to a canonical row, beside the inputs the system does not have.</p>
+<p>Two review targets sit at the foot of the page. The game is on the current patch, so they open the replay at 04:00, watch the wave they could not otherwise assess, and record an annotation. The decision re-evaluates with that evidence attached.</p>
+<p style="margin-bottom:0">Weeks later they return to the same pattern and see whether it still occurs at the same rate.</p></div>
+
+<h3>Done, per layer</h3>
+<table>
+<tr><th style="width:150px">Layer</th><th>Done means</th></tr>
+<tr><td><strong>Data</strong></td><td>Corpus enumerated at run time; audit regenerates; no count hardcoded anywhere.</td></tr>
+<tr><td><strong>Canonical DB</strong></td><td>Participant-long; rebuilt from every valid pair; invariant gate passes with zero mismatches.</td></tr>
+<tr><td><strong>Derived</strong></td><td>Every value carries availability, derivation method and confidence.</td></tr>
+<tr><td><strong>Decision engine</strong></td><td>Only verified catalogue entries implemented; every rule has synthetic and real-example tests; no PARTIAL ships without its missing half named.</td></tr>
+<tr><td><strong>Per-game</strong></td><td>A human has validated a generated report line by line against a replay.</td></tr>
+<tr><td><strong>Season</strong></td><td>Patterns derive from the same decision records the game view shows — the two cannot disagree.</td></tr>
+<tr><td><strong>Dashboard</strong></td><td>Five pages, each with a stated question; drill path works by clicking; no visual without a declared job.</td></tr>
+<tr><td><strong>Privacy</strong></td><td>Allow-list publisher; assertions on the built artefact; the per-game publication decision explicitly settled.</td></tr>
+<tr><td><strong>Tests</strong></td><td>Analytical correctness protected, not coverage chased.</td></tr>
+<tr><td><strong>Docs</strong></td><td>One canonical home per fact: domain describes mechanics, audit describes availability, spec describes operationalization, context holds state.</td></tr>
+</table>
+</section>
+
+<section id="open">
+<h2><span class="n">25</span>Open questions</h2>
+<table>
+<tr><th style="width:44px">#</th><th style="width:230px">Question</th><th>Why it blocks</th><th style="width:130px">Status</th></tr>
+<tr><td>1</td><td><strong>Verify the catalogue</strong></td><td>All 70 entries are AI-generated candidates with web citations, not the player's own verified knowledge. Building rules against unverified entries risks encoding someone else's idea of the game. The 13 BUILDABLE ones are the priority.</td><td><span class="tag t-unk">REQUIRES DOMAIN REVIEW</span></td></tr>
+<tr><td>2</td><td><strong>Define six domain thresholds</strong></td><td>Entries #13, 14, 15, 25, 38, 43 need only a number — "high-value window", "low probability", "conversion". No telemetry required. Cheapest unblock available.</td><td><span class="tag t-unk">REQUIRES DOMAIN REVIEW</span></td></tr>
+<tr><td>3</td><td><strong>Publish per-game data or keep it local?</strong></td><td>A public dated game list plus champions plus death sequence is the most identifying artefact the project would ship. Blocks P5 publication.</td><td><span class="tag t-unk">USER DECISION</span></td></tr>
+<tr><td>4</td><td><strong>Multiple-comparison policy</strong></td><td>Correct the verdict rule, or label uncorrected results as leads. Currently the champion verdict is uncorrected and would not survive correction.</td><td><span class="tag t-unk">USER DECISION</span></td></tr>
+<tr><td>5</td><td><strong>Degenerate-game handling</strong></td><td>13 remakes and 3 early surrenders in the corpus. Recommendation: no remake threshold — let each analysis declare its own required window, so exclusions are traceable to the analysis that required them.</td><td><span class="tag t-prop">PROPOSED</span></td></tr>
+<tr><td>6</td><td><strong>Adopt the four-state availability model?</strong></td><td>Changes <code>ANALYSIS_SPEC.md</code>. Proposed in §6; not applied.</td><td><span class="tag t-prop">PROPOSED</span></td></tr>
+<tr><td>7</td><td><strong>Objectives missing from the domain doc</strong></td><td><code>GAME_MECHANICS.md</code> documents three objectives; the corpus contains five. Dragon and Atakhan (113 games) are absent entirely. Found by reconciliation, not by review.</td><td><span class="tag t-unk">REQUIRES DOMAIN REVIEW</span></td></tr>
+<tr><td>8</td><td><strong>Visual dashboard audit</strong></td><td>Not performed. Worth doing against the rebuilt app, where it can assess hierarchy rather than confirm a known absence.</td><td><span class="tag t-def">DEFERRED</span></td></tr>
+</table>
+<p class="muted" style="margin-top:20px">Nothing in this document has been applied to <code>ANALYSIS_SPEC.md</code>, the database, the dashboard, or any application code. It is a blueprint awaiting approval.</p>
+</section>
+
+</main>
+</div>
+</body>
+</html>
