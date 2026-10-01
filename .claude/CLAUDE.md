@@ -12,6 +12,8 @@ A personal League of Legends review tool for one mid laner. It answers, in this 
 
 Personal usefulness beats portfolio polish. The long-form vision is `docs/VISION.md`; this file wins where they differ.
 
+**Audience.** The primary user is the player who owns the account. The secondary audience is an outside viewer, such as a recruiter or a peer: they should be able to follow what the tool concluded and why, but never at the primary user's expense.
+
 ## 2. Scope
 
 | Area | Rule |
@@ -53,7 +55,10 @@ Milestones run in this order. Tasks and their status live in `ROADMAP.md`.
 - **Sample size gates claims.** No verdict, ranking or colour on a slice too small to support it, and the count is shown beside the claim. A 2-game 100% record never outranks a 35-game 60% record. Small-sample outliers are never recommended.
 - **No invented thresholds.** A cutoff that changes a conclusion is the user's decision. Ask; don't default.
 - **Context for every number.** Compare against the player's own baseline or the actual lane opponent, e.g. "+8% above your overall mid-lane baseline", never against a coin flip.
+- **Distinct low-data states.** "No data", "insufficient data", "statistically uncertain", "data unavailable" and "not implemented" are different states and are shown differently. A 0% that really means "too few games" is a bug.
 - **Every element answers a question.** Each page, chart and metric serves a stated user question. Use a chart only when it reads better than the table. No metric explosion.
+- **Defined metrics.** Every important metric documents its source, calculation, assumptions and limitations.
+- **Drill-down path.** A finding links down to its evidence: pattern → games → game → decision → evidence. In M1 this is champion → matchups → games.
 - **Correctness before presentation.** A wrong number that looks good is worse than no number.
 
 ## 5. Architecture
@@ -93,7 +98,7 @@ Watch for off-role games, missing timeline minutes and stale derived tables.
 - DuckDB over SQLite: analytical SQL without a server.
 - Raw JSON is saved before processing, so data can be reprocessed without hitting the API again.
 - Ranked Solo/Duo only, for a cleaner signal.
-- K-Means is retired. Its clusters recovered win/loss rather than playstyle (silhouette ≈ 0.19), and the cluster IDs reshuffled on every refresh.
+- K-Means is being retired in M1.8. The reasons are in the ROADMAP parking lot.
 
 **Known gaps.** Roam detection is heuristic, and `MID_LANE_CORRIDOR_WIDTH = 2500` in `src/features.py` is an invented constant. Its real value is the user's call.
 
@@ -129,7 +134,8 @@ Watch for off-role games, missing timeline minutes and stale derived tables.
 - **During:**
   - stay inside the task;
   - surface product, domain, threshold and architecture choices to the user instead of deciding them;
-  - routine implementation details are yours.
+  - routine implementation details are yours;
+  - when replacing an implementation, state what is being replaced, why, what must keep working, and what changes on purpose.
 - **End:**
   - tick the ROADMAP tasks and update *Now*;
   - add a CONTEXT entry at the top;
@@ -156,4 +162,6 @@ Watch for off-role games, missing timeline minutes and stale derived tables.
 - One fact, one home: link to it, don't restate it.
 - An L3 file is not authoritative until a recorded decision promotes it into L0 or L1.
 - Status lives only in ROADMAP; history lives only in CONTEXT and git.
-- Every doc opens with one header line: level · purpose · owner · update rule.
+- Every L0–L2 doc opens with one header line: level · purpose · owner · update rule. Two exceptions:
+  - `GAME_MECHANICS.md` is user-owned and stays unchanged until the user splits it;
+  - L3 files are left as they are.
