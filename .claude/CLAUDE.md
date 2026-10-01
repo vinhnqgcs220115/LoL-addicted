@@ -1,102 +1,159 @@
-# LOL Ranked Analytics
+# LoL Mid-Lane Analytics
 
-Personal DS portfolio project — analyzing ranked LoL performance via the official Riot Games API. Single-summoner scope, no real-time in-game interaction. End product: a live Streamlit dashboard deployed on Streamlit Cloud.
+> **L0 Constitution** · scope, rules and doc map; auto-loads every session · owner: Claude, scope changes need the user's OK · update: in the same commit as any scope or rule change
 
-## Where Facts Live
+## 1. Purpose
 
-Every fact has exactly one home. Read the home file; do not restate its content elsewhere.
+A personal League of Legends review tool for one mid laner. It answers, in this order:
 
-| Kind of fact | Home | Read it when |
-|---|---|---|
-| What we are building, who for, when it is done, non-goals | `PRODUCT.md` | Before proposing any feature or UI change |
-| Standing engineering rules | this file and `AGENTS.md` | Always |
-| Mid-lane domain truth | `GAME_MECHANICS.md` | Before touching any gameplay feature |
-| Runnable procedures | `.claude/skills/` | When running or debugging the pipeline |
-| Current state: counts, metrics, phase, open items, decisions | `.claude/CONTEXT.md` | Before claiming anything about current status |
-| How we work together | `.claude/COLLAB.md` | At session start |
-| What happened and when | `git log` | When history matters |
+1. **Per game:** what happened in my mid lane, what decisions did I make, how good were they?
+2. **Per season:** what are my real strengths, weaknesses, champion tendencies and recurring patterns?
+3. **Later:** how do my decisions differ from pro mid laners in the same matchup and patch?
 
-**The state rule: `.claude/CONTEXT.md` is the only file that may contain project state — a row count, a metric, a date, a phase, or a done/not-done claim.** Every other document holds rules, product intent, or domain constants only. A session that changes project state edits `CONTEXT.md` and no other document. There is no session log; `git log` is the log.
+Personal usefulness beats portfolio polish. The long-form vision is `docs/VISION.md`; this file wins where they differ.
 
-Not project state, and therefore allowed elsewhere: domain constants and patch-verification dates in `GAME_MECHANICS.md`, dated decision entries, code constants, and thresholds declared in source.
+## 2. Scope
 
-Never trust a status claim in a chat handoff, a plan, or a summary over the repository. Verify against the tree.
+| Area | Rule |
+|---|---|
+| Account | One summoner, set in `.env`. Public identity is fine: the Riot ID and rank may appear on the live app. |
+| Queue | Ranked Solo/Duo only (`queue=420`). |
+| Season | Current season = patch major version: 16.x is Season 16, and 17.1 starts Season 17. Pre-season patches (such as 15.24) belong to the old season. Stats and match history cover the current season only; older raw data stays on disk. The user may write patches as 26.x; store Riot's 16.x form. *Target: the code uses `CURRENT_SEASON_START` until ROADMAP M1.2.* |
+| Roles | Every role is collected, stored and listed in match history. Analytics are mid only (`team_position = 'MIDDLE'`). |
+| Deployment | Streamlit Community Cloud: https://myishaa.streamlit.app/ |
 
-## Module Contracts
+**Forbidden**
+- Live or in-game features.
+- Win-probability prediction. It was removed before because its output had no use.
+- Verdicts on trading or wave management. Match-V5 has no minion state, ability casts, cooldowns or ward positions. At most, point the user to a replay minute.
+- Invented certainty: a claim the sample can't support, or a proxy shown as fact.
 
-Each module owns exactly one layer. Never reach across. Notebooks are sandboxed exploration and are never imported by `src/`.
+**Not now:** multi-user or public profiles, all-role analytics, and an AI explanation layer. An AI layer only ever sits on top of validated analytics.
+
+## 3. Order of work
+
+Milestones run in this order. Tasks and their status live in `ROADMAP.md`.
+
+| Milestone | Goal |
+|---|---|
+| M1 Dashboard scaffold | Season-stats landing page, champion pool with matchups, current-season match history, local collect button. Time-boxed. |
+| M1b Live collection | Collect button on the live app. Runs in parallel; needs a non-expiring Riot key, cloud storage and an owner-only guard. |
+| M2 Per-game report | Measurements only: lane phase 0–14 min against the lane opponent. The window is temporary. |
+| M3 Decision analysis | Rules from the decision catalogue. Blocked on the user's catalogue review and thresholds. |
+| M4 Season patterns | Named recurring decision patterns built from M3 records. Never clusters. |
+| M5 Pro comparison | One matchup at a time, patch-aware. |
+
+**Putting M1 first is the user's decision (2026-10-01).** It deliberately overrides `docs/VISION.md` §16 ("don't optimize the UI before definitions are stable") and the 2026-09-16 design rule "statistics never the headline", for M1 only. From M2 onward, per-game decisions lead and statistics are context.
+
+## 4. Principles
+
+- **Layers of meaning.** Keep raw facts, derived values, interpretation and recommendations separate, and label which is which.
+- **Provenance.** Every derived value states its source (a Riot field, a derivation, or an inference) and a confidence.
+- **Proxies read as estimates.** Inferred recalls, roam detection and death categories are labelled as inferred.
+- **Sample size gates claims.** No verdict, ranking or colour on a slice too small to support it, and the count is shown beside the claim. A 2-game 100% record never outranks a 35-game 60% record. Small-sample outliers are never recommended.
+- **No invented thresholds.** A cutoff that changes a conclusion is the user's decision. Ask; don't default.
+- **Context for every number.** Compare against the player's own baseline or the actual lane opponent, e.g. "+8% above your overall mid-lane baseline", never against a coin flip.
+- **Every element answers a question.** Each page, chart and metric serves a stated user question. Use a chart only when it reads better than the table. No metric explosion.
+- **Correctness before presentation.** A wrong number that looks good is worse than no number.
+
+## 5. Architecture
+
+Riot API → `data/raw/*.json` (immutable) → DuckDB → `src/` analytics → `dashboard/` (Streamlit).
 
 | Module | Owns | Never |
 |---|---|---|
-| `collector.py` | Riot API calls, rate limiting, raw JSON persistence | Transform or parse data |
-| `processor.py` | Parse raw JSON, insert to DuckDB | Call external APIs |
-| `features.py` | Compute features from DuckDB tables | Read `data/raw/` directly |
-| `models.py` | Train, evaluate, save models | Build features or call APIs |
-| `dashboard/app.py` | Streamlit rendering | Contain feature/business logic |
+| `src/collector.py` | Riot API calls, rate limiting, raw JSON persistence | parse or transform |
+| `src/processor.py` | Parse raw JSON into DuckDB; schema in `init_schema()` | call APIs |
+| `src/features.py` | All queries and analytics on DuckDB tables | read `data/raw/` |
+| `src/archetypes.py`, `src/mapping.py` | Champion archetypes (user-owned constants); minimap projection | — |
+| `src/models.py` | K-Means. **Being retired in M1.8; do not extend.** | — |
+| `dashboard/app.py` | Rendering, caching, layout | business logic or SQL beyond calling `src/` |
+| `scripts/build_deploy_db.py` | Builds `data/lol_deploy.duckdb` for the live app (still anonymizes until M1.3) | — |
+| `notebooks/` | Exploration sandbox | being imported by `src/` |
 
-## Data Rules
+**Data rules**
+- `data/raw/` is write-once. Rebuild DuckDB from it; never edit it.
+- DuckDB is the single source of processed data. Use `snake_case` columns, ISO 8601 timestamps, and explicit column lists on persistent tables.
+- Store `game_version` on every match as the first two segments of `info.gameVersion` (e.g. `16.12`). Never hardcode a patch.
+- Queries live in `src/`, never in `dashboard/`, so a later schema rebuild changes one layer, not the UI.
+- The live app reads `data/lol_deploy.duckdb` read-only. It is committed because Community Cloud has no persistent disk; M1b replaces this.
 
-Files in `data/raw/` are write-once. Never modify after saving. DuckDB is the single source of truth for processed data. Schema is declared once in `processor.py::init_schema()`. All column names use `snake_case`; timestamps use ISO 8601 strings. Use explicit columns when reading persistent tables. `SELECT *` is acceptable only for controlled registered DataFrames whose schema is defined in code.
+**Data integrity.** Before changing analytics, verify:
+- match, role and lane filtering;
+- champion identity;
+- patch and season;
+- duplicates and timestamps;
+- participant and opponent mapping;
+- win/loss;
+- timeline alignment.
 
-Collection and processing retain all ranked roles. The current analytical product is mid-only: every Season 16 baseline, dashboard query, feature row, and cluster label must be scoped to `team_position = 'MIDDLE'`. `opp_*` fields currently represent the enemy mid laner. Expanding to all roles requires role-aware opponent extraction, direct tests, and a full DuckDB rebuild.
+Watch for off-role games, missing timeline minutes and stale derived tables.
 
-`game_version` must be stored on every match row. Parse it from `match["info"]["gameVersion"]` in `processor.py` and keep the first two dot-separated segments. Riot API values use labels such as `"16.12.xxxxxxx"`; project discussions may call the same patch `26.12`. Store the API-derived `16.12` form and never hardcode a current patch.
+**Key decisions.** The old rationale is in git, at tag `pre-docs-refactor`.
+- DuckDB over SQLite: analytical SQL without a server.
+- Raw JSON is saved before processing, so data can be reprocessed without hitting the API again.
+- Ranked Solo/Duo only, for a cleaner signal.
+- K-Means is retired. Its clusters recovered win/loss rather than playstyle (silhouette ≈ 0.19), and the cluster IDs reshuffled on every refresh.
 
-`GAME_MECHANICS.md` is authoritative for mid-lane domain mechanics. Read it before changing roam, death-context, throw/comeback, wave-state, or objective-timing features. Current dashboard labels such as Throw, Comeback, Overextension, Deficit Fight, Post-Laning Throw, and roam-derived cluster features are heuristic proxies from single-player timeline data unless the code explicitly parses full team/opponent state.
+**Known gaps.** Roam detection is heuristic, and `MID_LANE_CORRIDOR_WIDTH = 2500` in `src/features.py` is an invented constant. Its real value is the user's call.
 
-## Data Integrity
+## 6. Riot API
 
-Analytics are only useful if the underlying data is correct. Before changing analytics logic, verify match filtering, role and lane filtering, champion identity, patch and season handling, duplicate matches, timestamps, participant mapping, opponent mapping, win/loss interpretation, and timeline alignment.
+- Account-V1 uses `asia.api.riotgames.com`; Match-V5 uses `sea.api.riotgames.com`. Wrong routing gives silent 404s.
+- Any other endpoint, such as League for rank: verify the host and response shape with a real call before writing code.
+- The dev key expires every 24 h; regenerate it at developer.riotgames.com.
+- Rate limits are 20 req/s and 100 req/2 min. Keep the 1.3 s delay; on a 429, wait `Retry-After` + 1 s.
+- Timelines are per-minute snapshots plus millisecond-exact events. What exists and what doesn't is measured in `docs/DATA_AUDIT.md`.
 
-Be especially careful with off-role games, duplicate games, incomplete timeline data, stale derived tables, stale cached values, and metrics calculated from the wrong scope.
+## 7. Hard rules
 
-A visually impressive statistic calculated incorrectly is worse than no statistic.
+- Secrets come only from `.env` or Streamlit secrets. Never commit `.env`, `data/raw/` or local `*.duckdb`; `data/lol_deploy.duckdb` is the one exception.
+- No Riot API calls outside `src/collector.py`.
+- No business logic in `dashboard/`.
+- No user-facing label that claims more than the data shows.
+- Stage explicit paths in git; never `git add -A` or `git add .`.
 
-## Code Conventions
+## 8. Testing
 
-Type hints on all functions. Module-level constants in `UPPER_SNAKE_CASE`. All secrets via `python-dotenv`, never hardcoded. Catch specific exceptions, not bare `except`. Docstrings on public functions.
+- Use `pytest` with fixtures in `tests/fixtures/`, and never call the real API in tests.
+- Every parser and feature function gets a test. Cover edge cases: zero deaths, a missing timeline minute, an empty ID list.
+- Lint with `ruff check src tests dashboard scripts`.
+- After any collector or processor change, run a small batch and check DuckDB (see the `pipeline-ops` skill).
+- A UI task is done only after the app has been run and the rendered page inspected.
 
-## Riot API Routing
+## 9. Session protocol
 
-Vietnam server uses split routing across two hosts — getting this wrong causes silent 404s:
+- **Start:**
+  - read `ROADMAP.md` → *Now*, and the newest entry in `.claude/CONTEXT.md`;
+  - verify status against the repo, never against a doc or a summary.
+- **During:**
+  - stay inside the task;
+  - surface product, domain, threshold and architecture choices to the user instead of deciding them;
+  - routine implementation details are yours.
+- **End:**
+  - tick the ROADMAP tasks and update *Now*;
+  - add a CONTEXT entry at the top;
+  - commit;
+  - if scope or rules changed, edit this file in the same commit.
 
-- Account-v1 (PUUID lookup): `asia.api.riotgames.com`
-- Match-v5: `sea.api.riotgames.com`
+## 10. Doc map
 
-Free dev key expires every 24h — must regenerate at `developer.riotgames.com`. Rate limit: 20 req/s and 100 req/2min. Guard all calls with `time.sleep(1.3)`. On HTTP 429, wait `Retry-After + 1` seconds before retry.
+| Level | File | Job | Read when |
+|---|---|---|---|
+| L0 | `.claude/CLAUDE.md` | Scope, rules, this map | Always (auto-loaded) |
+| L1 | `ROADMAP.md` | Milestones, tasks, status, open decisions, parking lot | Every session |
+| L1 | `.claude/CONTEXT.md` | Session journal: what happened, what was decided | Every session |
+| L2 | `README.md` | Front door for humans | Setup or features change |
+| L2 | `.claude/COLLAB.md` | Roles and how we work | Process questions |
+| L2 | `GAME_MECHANICS.md`, `docs/domain/` | Domain knowledge (user-owned) | Touching gameplay logic |
+| L2 | `.claude/skills/` | Running and debugging the pipeline | Pipeline work |
+| L3 | `docs/VISION.md`, `docs/ANALYSIS_SPEC.md`, `docs/DATA_AUDIT.md`, `docs/design/`, `docs/research/` | Archive and reference | Only when a task names them |
 
-## Hard Rules
-
-- No hardcoded API keys anywhere in `src/`
-- No Riot API calls outside `collector.py`
-- No writes to `data/raw/` after initial save
-- No feature/business logic inside `dashboard/app.py`; UI queries, caching, and rendering only
-- No deriving model features from DataFrame columns; `src/models.py::FEATURE_COLS` is the canonical list
-- No hard-coded semantic meaning for numeric cluster IDs; derive feature means from `feature_matrix` joined to `cluster_labels`
-- No user-facing proxy label may be presented as gameplay ground truth; qualify it or rename it
-- No dashboard dependency on gitignored `models/*.pkl`; those artifacts are local training outputs only
-- Never commit `.env`, `data/raw/`, or local `*.duckdb` files; `data/lol_deploy.duckdb` is the only deployment exception
-
-## Preferred Libraries
-
-Charts: `plotly` in the dashboard, `seaborn` in notebooks only. Linting: `ruff`. Everything else is pinned in `requirements.txt`.
-
-## Verification
-
-Before writing any collection code, test the target endpoint in Postman or curl first. Inspect the actual response shape — Riot docs occasionally omit fields or nest things unexpectedly. Set `X-Riot-Token` as a Postman environment variable, not inline.
-
-For unit tests, use `pytest`. Test parsing logic against fixture files: save one real API response per endpoint to `tests/fixtures/` and load it in tests. Never call the real API in unit tests — mock with `unittest.mock.patch`. Always cover edge cases: zero deaths in KDA, a match where the timeline is missing a minute, an empty match ID list.
-
-After every ingestion run, verify DuckDB before moving forward — the checklist lives in the `pipeline-ops` skill.
-
-## Testing Strategy
-
-Three levels, each with a clear scope:
-
-**Unit tests** (`tests/`) — every parsing function in `processor.py` and every feature calculation in `features.py` needs a unit test.
-
-**Manual integration checks** — run the full pipeline on a small batch (10 matches) and verify DuckDB output with the checklist in the `pipeline-ops` skill. Not automated; run this after any change to `collector.py` or `processor.py`.
-
-**Notebook smoke tests** — before committing a finished notebook, restart the kernel and run all cells top to bottom. A notebook that only works with leftover kernel state is broken.
-
-No end-to-end test against the real Riot API in CI — the free key expires every 24h, making automated tests impractical. Unit tests with fixtures are sufficient.
+**Rules**
+- A higher level wins a conflict.
+- Measured facts beat any doc on what is true: the code, a DuckDB query, `docs/DATA_AUDIT.md`.
+- `GAME_MECHANICS.md` §5–6 describe data and code as of July 2026; the code and DATA_AUDIT win there.
+- One fact, one home: link to it, don't restate it.
+- An L3 file is not authoritative until a recorded decision promotes it into L0 or L1.
+- Status lives only in ROADMAP; history lives only in CONTEXT and git.
+- Every doc opens with one header line: level · purpose · owner · update rule.

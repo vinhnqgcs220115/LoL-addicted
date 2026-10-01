@@ -1,7 +1,7 @@
 """Champion archetype taxonomy for mid-lane matchup analysis.
 
 Domain constants only. This module reads nothing and computes nothing; it maps
-champion names to the archetype vocabulary fixed in PRODUCT.md section 7 so
+champion names to the archetype vocabulary defined in ARCHETYPES below so
 matchup analysis can group opponents into buckets large enough to support a
 verdict. Pair-level slices in this dataset run 2-9 games and never will.
 
@@ -9,14 +9,14 @@ Assignments here are domain judgments and are owned by the user. Riot's Data
 Dragon `tags` are deliberately not used as the source: they conflate "can be
 played support" with class identity (it returns Mage/Support for Hwei and
 Orianna) and carry no burst-versus-control distinction, which is the exact
-split the PRODUCT.md worked example depends on.
+split mid-lane matchup analysis depends on.
 
 Correct a champion by editing CHAMPION_ARCHETYPES. Nothing else needs to change.
 """
 
 from __future__ import annotations
 
-# PRODUCT.md section 7 lists Bruisers and Fighters alongside Divers,
+# The original product spec listed Bruisers and Fighters alongside Divers,
 # Juggernauts, and Skirmishers. Riot's Fighter class *is* Divers plus
 # Juggernauts and "bruiser" is colloquial for the same group, so the redundant
 # labels are dropped per the user's decision: only the specific subclasses are
@@ -43,8 +43,8 @@ UNCLASSIFIED: str = "Unclassified"
 #: aggregates rather than forced into a bucket they would distort; they keep
 #: their own champion-level verdict, which is unaffected by this question.
 #: Resolving them properly needs per-game item data. Items are present in the
-#: raw match JSON and are not parsed into DuckDB yet — see the stage 0 reparse
-#: in .claude/CONTEXT.md.
+#: raw match JSON and are not parsed into DuckDB yet; parsing item buys is
+#: part of the per-game timeline work (ROADMAP.md, M2).
 BUILD_DEPENDENT: frozenset[str] = frozenset({"Sylas"})
 
 BUILD_DEPENDENT_LABEL: str = "Build-dependent"

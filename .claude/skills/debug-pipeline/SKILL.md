@@ -5,9 +5,11 @@ description: Triage a broken LoL analytics pipeline layer by layer. Use when a R
 
 # Debugging the pipeline
 
+> **L2 Reference** · procedure: triage a broken pipeline · owner: Claude · update: when pipeline behavior changes
+
 Work layer by layer from the earliest point in the data flow. Don't jump to assumptions.
 
-**First: is the raw file there?** Check `data/raw/{match_id}.json`. If it exists, the API call succeeded — the problem is in `processor.py` or later. If it doesn't, the problem is in `collector.py` or the key.
+**First: is the raw file there?** Check `data/raw/{match_id}.json`. If it exists, the API call succeeded — the problem is in `src/processor.py` or later. If it doesn't, the problem is in `src/collector.py` or the key.
 
 **Second: what does the raw JSON actually say?** Open one file manually before touching any code. Riot responses nest participant data inside `info.participants[]` — a field you expect might be two levels deeper than assumed or named differently than the docs show.
 
@@ -22,7 +24,10 @@ Common failure patterns:
 | Empty match ID list | Wrong PUUID, or no ranked games in the requested time window |
 | NULL values in feature matrix | Field missing from raw JSON, or timeline lacks that exact minute |
 | Streamlit shows stale data | `@st.cache_data` is holding old results — call `.clear()` or restart the server |
-| DuckDB "column not found" | Schema in `init_schema()` is out of sync with what `processor.py` inserts |
+| DuckDB "column not found" | Schema in `init_schema()` is out of sync with what `src/processor.py` inserts |
 | Tilt index looks wrong | Missing `.shift(1)` — current game result is leaking into its own feature |
 
-If stuck after going through all three steps, log the issue in `CONTEXT.md` under Known Issues with what was already tried, and move to a different task. Return with fresh context.
+If you're still stuck after all three steps:
+- write what you tried in this session's `.claude/CONTEXT.md` entry;
+- add a task for it in `ROADMAP.md`;
+- move to a different task, and come back with fresh context.

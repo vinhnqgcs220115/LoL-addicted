@@ -1,69 +1,42 @@
-# LOL Ranked Analytics
+# LoL Mid-Lane Analytics
 
-Single-summoner League of Legends analytics built with the Riot Games API, DuckDB, K-Means clustering, and Streamlit. The current analytical scope is ranked mid-lane games from Season 16; collection and processing retain all roles for future expansion.
+> **L2 Reference** · front door for humans · owner: Claude · update: when setup or features change
 
-See [`PRODUCT.md`](PRODUCT.md) for what this project is for and what is deliberately out of scope, and [`.claude/CONTEXT.md`](.claude/CONTEXT.md) for current status.
+A personal League of Legends review tool for one mid laner. It collects my ranked Solo/Duo games from the Riot API, stores them in DuckDB and shows them in a Streamlit dashboard. The aim is to understand my own play: first season stats, then what happened in each game's lane phase and which decisions I made.
 
-## Development Setup
+**Live app:** https://myishaa.streamlit.app/
 
-Install `uv`, then run from the repository root in PowerShell:
+## Status
 
-```powershell
-Copy-Item .env.example .env
-.\scripts\workflow.ps1 sync
-```
+Being rebuilt. The live app shows the previous dashboard until milestone M1 ships. Progress is in [`ROADMAP.md`](ROADMAP.md).
 
-Set `RIOT_API_KEY` and either `GAME_NAME` plus `TAG`, or an existing `PUUID`, in `.env`. The project uses Python 3.11 and creates `.venv` automatically.
+## What it will do
 
-`sync` installs `requirements-dev.txt`. With an existing environment, run `uv pip install -r requirements-dev.txt` directly. Streamlit Cloud reads `requirements.txt` automatically, so Jupyter and development tools are not installed in production.
+- **Season overview:** Riot ID, rank, games and win rate for the current season.
+- **Champion pool:** every champion played in mid this season, with matchups and win rate per opponent.
+- **Match history:** every Solo/Duo game of the season, with a button to collect new games.
+- **Per-game review:** the lane phase (0–14 min) against the lane opponent, covering CS, gold, XP, deaths, recalls, plates and roams.
 
-## Workflow
+## How it works
 
-```powershell
-.\scripts\workflow.ps1 collect
-.\scripts\workflow.ps1 process
-.\scripts\workflow.ps1 features
-.\scripts\workflow.ps1 models
-.\scripts\workflow.ps1 refresh
-.\scripts\workflow.ps1 rebuild
-.\scripts\workflow.ps1 test
-.\scripts\workflow.ps1 smoke
-.\scripts\workflow.ps1 deploy-db
-.\scripts\workflow.ps1 dashboard
-```
+Riot API → raw JSON (never edited) → DuckDB → analytics in `src/` → Streamlit dashboard. The live app reads a DuckDB snapshot committed to the repo.
 
-- `refresh` incrementally collects and runs the complete pipeline.
-- `rebuild` recreates `data/lol.duckdb` from immutable raw files, then rebuilds features and models. Use it after parser or schema changes.
-- `smoke` runs a five-match live pipeline check and requires a valid Riot API key.
-- `deploy-db` builds a sanitized `data/lol_deploy.duckdb` for Streamlit Cloud.
-- `dashboard` starts the local Streamlit app.
+## Set up on a new machine
 
-Every command stops on the first failed native process. Run `python -m ruff check src tests dashboard scripts` and `.\scripts\workflow.ps1 test` before committing.
-
-## Deployment Data
-
-The dashboard must open `data/lol_deploy.duckdb` read-only. Regenerate it locally with `deploy-db` after verification; never write to it in Streamlit Cloud. Review the database contents before making the repository public because timestamps plus champion/version data can still be identifying even though Riot match IDs are replaced with surrogates.
-
-## Updating Deployed Data
+1. Install Python 3.11 and [uv](https://docs.astral.sh/uv/), then clone this repo.
+2. Copy `.env.example` to `.env`. Fill in `RIOT_API_KEY` (from [developer.riotgames.com](https://developer.riotgames.com)) and either `GAME_NAME` + `TAG` or `PUUID`.
+3. From the repo root, in PowerShell:
 
 ```powershell
-.\scripts\workflow.ps1 refresh   # collect → process → features → models
-.\scripts\workflow.ps1 deploy-db # builds sanitised lol_deploy.duckdb
+.\scripts\workflow.ps1 sync       # create .venv and install dependencies
+.\scripts\workflow.ps1 refresh    # collect new games and process them
+.\scripts\workflow.ps1 dashboard  # open the app locally
 ```
 
-Commit `data/lol_deploy.duckdb`. The deploy step strips the `puuid` column and replaces Riot match IDs with surrogate IDs before writing the deployment file. The dashboard reads the committed file because Streamlit Cloud has no persistent disk.
+The raw match files (`data/raw/`) are not in git. Back them up separately, because older games may no longer be downloadable.
 
-## Dashboard
+## Docs
 
-Dashboard pattern labels are heuristic. `Throw`, `Comeback`, death context, and roam-derived cluster features use single-player timeline proxies, not full team-state ground truth. See `GAME_MECHANICS.md` before interpreting those labels.
-
-- Local: `.\scripts\workflow.ps1 dashboard`
-- Deployed: https://myishaa.streamlit.app/
-- Streamlit Cloud entry point: `dashboard/app.py`
-- Python version: 3.11
-
-![Overview tab](docs/screenshots/dashboard-overview.png)
-
-![Champions tab](docs/screenshots/dashboard-champions.png)
-
-![Patterns tab](docs/screenshots/dashboard-patterns.png)
+- [`ROADMAP.md`](ROADMAP.md): what's being built, and what's next.
+- [`.claude/CONTEXT.md`](.claude/CONTEXT.md): what each work session did.
+- [`.claude/CLAUDE.md`](.claude/CLAUDE.md): the full scope and rules, written for the coding agent.

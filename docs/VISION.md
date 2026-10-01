@@ -1,5 +1,8 @@
 # LoL Mid-Lane Analytics Project — Project Definition and Starting Direction
 
+> **L3 Archive** · the user's 2026-08-29 project definition, kept word for word below · owner: the user · update: never; changes go into `.claude/CLAUDE.md` or `ROADMAP.md`
+> Where this file and `.claude/CLAUDE.md` differ, CLAUDE.md wins. For example, building the dashboard scaffold first was decided on 2026-10-01.
+
 ## 1. Project Purpose
 
 The project is a **personal mid-lane performance analysis and improvement system for League of Legends**.

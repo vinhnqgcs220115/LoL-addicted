@@ -39,10 +39,10 @@ def wilson_interval(
     """Return the Wilson score interval for a win count.
 
     Used instead of a fixed win-rate cutoff. A hardcoded threshold such as
-    "green at 55%" is an invented gameplay threshold and PRODUCT.md section 12
-    forbids one; the interval width is derived from the sample size instead, so
-    a two-game matchup cannot produce a confident verdict. Do not replace this
-    with a percentage constant.
+    "green at 55%" is an invented gameplay threshold, which CLAUDE.md
+    (Principles, "No invented thresholds") forbids; the interval width is
+    derived from the sample size instead, so a two-game matchup cannot produce
+    a confident verdict. Do not replace this with a percentage constant.
 
     Returns (0.0, 1.0) for zero games — maximally uninformative, never clear.
     """
@@ -63,7 +63,8 @@ def personal_baseline(conn: duckdb.DuckDBPyConnection) -> float:
     """Return the player's overall win rate within the current analysis scope.
 
     This is the baseline every matchup and champion verdict is measured against,
-    per PRODUCT.md section 4: "+8% above your overall mid-lane baseline". A
+    per CLAUDE.md (Principles, "Context for every number"): "+8% above your
+    overall mid-lane baseline". A
     matchup is not good because it beats a coin flip; it is good because it
     beats how the player does in general.
     """
@@ -117,10 +118,11 @@ def binomial_significance(wins: int, games: int, baseline: float) -> float:
 def classify_winrate(wins: int, games: int, baseline: float) -> str:
     """Classify a record against the player's baseline.
 
-    Returns one of the PRODUCT.md section 7 classes. ``Skill-based`` is
+    Returns ``Positive``, ``Negative`` or ``Uncertain``. ``Skill-based`` is
     deliberately not emitted: separating "reliably close to baseline" from
     "we simply do not know" requires naming a minimum interesting effect size,
-    which PRODUCT.md section 12 makes a user decision. Until that number
+    which CLAUDE.md (Principles, "No invented thresholds") makes a user
+    decision. Until that number
     exists, both cases are honestly reported as Uncertain.
     """
     if games <= 0:
@@ -404,7 +406,8 @@ def pocket_picks(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     A pocket pick is a champion outside the core pool that outperforms the
     player's baseline. The label reports the strength of the evidence, so a
     small-sample outlier lands on `Insufficient Data` instead of becoming a
-    recommendation -- PRODUCT.md section 6 forbids the latter explicitly.
+    recommendation -- CLAUDE.md (Principles, "Sample size gates claims")
+    forbids the latter explicitly.
 
     Columns: champion_name, archetype, games, wins, winrate, winrate_lo,
     winrate_hi, label, evidence.
@@ -628,7 +631,7 @@ def is_throw_game(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     "throw" only meant a better-than-usual start that still lost.
 
     The boundary is zero — genuinely ahead or genuinely behind. No lead size is
-    invented, which PRODUCT.md section 12 forbids.
+    invented, which CLAUDE.md (Principles, "No invented thresholds") forbids.
 
     ``gold_delta`` is retained unchanged because it is a model feature in
     ``src/models.py::FEATURE_COLS``; changing it would redefine the clusters.

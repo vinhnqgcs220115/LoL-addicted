@@ -441,7 +441,7 @@ def test_core_champions_is_derived_from_usage_not_a_game_count() -> None:
 
 
 def test_pocket_picks_never_recommends_a_single_game_outlier() -> None:
-    """A 1/1 champion is the exact case PRODUCT.md forbids promoting."""
+    """A 1/1 champion is the exact case CLAUDE.md ("Sample size gates claims") forbids promoting."""
     conn = _make_conn()
     # One extra champion, played once, won once: a 100% win rate on no evidence.
     conn.execute("""
